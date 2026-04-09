@@ -20,8 +20,15 @@
         }
 
         @keyframes pop {
-            0%, 100% { transform: inherit; }
-            50% { transform: scale(1.1); }
+
+            0%,
+            100% {
+                transform: inherit;
+            }
+
+            50% {
+                transform: scale(1.1);
+            }
         }
 
         *,
@@ -194,11 +201,11 @@
     </template>
     <script type="text/javascript">
         (function () {
-            const container = document.getElementById("platform_container");
+            const container = document.getElementById('platform_container');
             const urlParams = new URLSearchParams(window.location.search);
             const state = new Map();
             const sockets = [];
-            const hasServerMode = urlParams.has("server") || urlParams.has("server2") || urlParams.has("server3");
+            const hasServerMode = urlParams.has('server') || urlParams.has('server2') || urlParams.has('server3');
 
             var viewerCounts = Object.create(null);
             var sequenceCounter = 0;
@@ -209,20 +216,20 @@
 
                 if (number < 1000) return number;
 
-                const suffixes = ["K", "M", "B", "T"];
+                const suffixes = ['K', 'M', 'B', 'T'];
                 const suffixIndex = Math.floor(Math.log10(number) / 3) - 1;
-                
+
                 let shortValue = number / Math.pow(1000, suffixIndex + 1);
 
                 return `${parseFloat(shortValue.toFixed(precision))}${suffixes[suffixIndex]}`
             }
 
             function parseNumber(value) {
-                if (typeof value === "number" && Number.isFinite(value))
+                if (typeof value === 'number' && Number.isFinite(value))
                     return value;
 
-                if (typeof value === "string") {
-                    var cleaned = value.replace(/[^0-9.-]/g, "");
+                if (typeof value === 'string') {
+                    var cleaned = value.replace(/[^0-9.-]/g, '');
                     if (!cleaned) return null;
                     var parsed = parseFloat(cleaned);
                     return Number.isFinite(parsed) ? parsed : null;
@@ -232,35 +239,35 @@
             }
 
             function normalizeEventName(eventName) {
-                if (typeof eventName !== "string") return "";
+                if (typeof eventName !== 'string') return '';
                 return eventName
                     .toLowerCase()
-                    .replace(/[^a-z0-9]+/g, "_")
-                    .replace(/_+/g, "_")
-                    .replace(/^_+|_+$/g, "");
+                    .replace(/[^a-z0-9]+/g, '_')
+                    .replace(/_+/g, '_')
+                    .replace(/^_+|_+$/g, '');
             }
 
             function getEventCategory(normalizedEventName) {
-                if (normalizedEventName === "auction_update") return "auction";
-                if (normalizedEventName === "commerce_update") return "commerce";
-                if (normalizedEventName === "viewer_update" || normalizedEventName === "viewer_updates") return "viewers";
-                return "othermeta";
+                if (normalizedEventName === 'auction_update') return 'auction';
+                if (normalizedEventName === 'commerce_update') return 'commerce';
+                if (normalizedEventName === 'viewer_update' || normalizedEventName === 'viewer_updates') return 'viewers';
+                return 'othermeta';
             }
 
             function eventIsEnabled(normalizedEventName) {
                 var category = getEventCategory(normalizedEventName);
-                return category !== "othermeta"
+                return category !== 'othermeta'
             }
 
             function isPlainObject(value) {
-                return Object.prototype.toString.call(value) === "[object Object]";
+                return Object.prototype.toString.call(value) === '[object Object]';
             }
 
             function syncViewerEntries(replaceSnapshot) {
                 if (replaceSnapshot) {
                     Array.from(state.keys()).forEach(function (key) {
-                        if (key.indexOf("viewers.platform.") === 0) {
-                            var platform = key.replace("viewers.platform.", "");
+                        if (key.indexOf('viewers.platform.') === 0) {
+                            var platform = key.replace('viewers.platform.', '');
                             if (!Object.prototype.hasOwnProperty.call(viewerCounts, platform)) {
                                 state.delete(key);
                             }
@@ -276,20 +283,20 @@
                     if (count === null) continue;
                     total += count;
                     setEntry(
-                        "viewers.platform." + platform,
+                        `viewers.platform.${platform}`,
                         platform,
-                        platform.toUpperCase() + " Viewers",
+                        `${platform.toUpperCase()} Viewers`,
                         count,
-                        "viewers." + platform,
-                        "viewers",
+                        `viewers.${platform}`,
+                        'viewers',
                         210 + i
                     );
                 }
 
                 if (platforms.length) {
-                    setEntry("viewers.total", "all", "Total Viewers", total, "viewers.total", "viewers", 205);
+                    setEntry('viewers.total', 'all', 'Total Viewers', total, 'viewers.total', 'viewers', 205);
                 } else {
-                    state.delete("viewers.total");
+                    state.delete('viewers.total');
                 }
             }
 
@@ -302,7 +309,7 @@
                     platform,
                     label,
                     value,
-                    category: category || "othermeta",
+                    category: category || 'othermeta',
                     order: Number.isFinite(order) ? order : 500,
                     sequence: existing ? existing.sequence : ++sequenceCounter
                 });
@@ -328,7 +335,7 @@
                             views.classList.remove('animate-pop');
                             void views.offsetWidth;
                             views.classList.add('animate-pop');
-                            
+
                             setTimeout(() => {
                                 views.classList.remove('animate-pop')
                             }, 400)
@@ -354,12 +361,12 @@
             }
 
             function connectIframe() {
-                var sessionId = urlParams.get("session");
+                var sessionId = urlParams.get('session');
                 if (!sessionId || hasServerMode) return;
 
-                var password = encodeURIComponent(urlParams.get("password") || "false");
-                var lanonly = urlParams.has("lanonly") ? "&lanonly" : "";
-                iframe = document.createElement("iframe");
+                var password = encodeURIComponent(urlParams.get('password') || 'false');
+                var lanonly = urlParams.has('lanonly') ? '&lanonly' : '';
+                iframe = document.createElement('iframe');
                 iframe.src = `https://vdo.socialstream.ninja/?ln&salt=vdo.ninja&notmobile&password=${password + lanonly}&solo&view=${encodeURIComponent(sessionId)}&novideo&noaudio&label=meta&cleanoutput&room=${encodeURIComponent(sessionId)}`;
                 iframe.style.cssText = 'width:0;height:0;position:fixed;left:-100px;top:-100px';
                 document.body.appendChild(iframe);
@@ -439,24 +446,24 @@
             }
 
             function connectServerModes() {
-                var roomId = (urlParams.get("session") || "").split(",")[0];
+                var roomId = (urlParams.get('session') || '').split(',')[0];
                 if (!roomId) return;
 
-                if (urlParams.has("server")) {
-                    var apiServerURL = urlParams.get("server") || (urlParams.has("localserver") ? "ws://127.0.0.1:3000" : "wss://io.socialstream.ninja/api");
+                if (urlParams.has('server')) {
+                    var apiServerURL = urlParams.get('server') || (urlParams.has('localserver') ? 'ws://127.0.0.1:3000' : 'wss://io.socialstream.ninja/api');
                     connectSocket(apiServerURL, roomId, 2, 1);
                 }
 
-                if (urlParams.has("server2") || urlParams.has("server3")) {
-                    var extensionServerURL = urlParams.has("server2")
-                        ? (urlParams.get("server2") || "wss://io.socialstream.ninja/extension")
-                        : (urlParams.get("server3") || "wss://io.socialstream.ninja/extension");
+                if (urlParams.has('server2') || urlParams.has('server3')) {
+                    var extensionServerURL = urlParams.has('server2')
+                        ? (urlParams.get('server2') || 'wss://io.socialstream.ninja/extension')
+                        : (urlParams.get('server3') || 'wss://io.socialstream.ninja/extension');
                     connectSocket(extensionServerURL, roomId, 3, 4);
                 }
             }
 
             function processIncomingData(raw) {
-                if (!raw || typeof raw !== "object") return;
+                if (!raw || typeof raw !== 'object') return;
                 if (raw.dataReceived && raw.dataReceived.overlayNinja) {
                     processPayload(raw.dataReceived.overlayNinja);
                     return;
@@ -469,27 +476,27 @@
             }
 
             function processPayload(data) {
-                if (!data || typeof data !== "object") return;
-                if (data.content && typeof data.content === "object") {
+                if (!data || typeof data !== 'object') return;
+                if (data.content && typeof data.content === 'object') {
                     data = data.content;
                 }
 
-                var normalizedEventName = normalizeEventName(data.event || data.type || "");
-                if (!normalizedEventName || typeof data.meta === "undefined" || data.meta === null) return;
+                var normalizedEventName = normalizeEventName(data.event || data.type || '');
+                if (!normalizedEventName || typeof data.meta === 'undefined' || data.meta === null) return;
                 if (!eventIsEnabled(normalizedEventName)) return;
 
                 var meta = data.meta;
                 var category = getEventCategory(normalizedEventName);
 
-                if (normalizedEventName === "viewer_update") {
-                    var platformName = (data.type || data.platform || "").toString().toLowerCase();
+                if (normalizedEventName === 'viewer_update') {
+                    var platformName = (data.type || data.platform || '').toString().toLowerCase();
                     var singleCount = parseNumber(meta);
 
                     if (platformName && singleCount !== null) {
                         viewerCounts[platformName] = singleCount;
                         syncViewerEntries(false)
                     }
-                } else if (normalizedEventName === "viewer_updates" && isPlainObject(meta)) {
+                } else if (normalizedEventName === 'viewer_updates' && isPlainObject(meta)) {
                     viewerCounts = Object.create(null);
                     Object.keys(meta).forEach(function (platform) {
                         var numeric = parseNumber(meta[platform]);
@@ -499,7 +506,7 @@
                     });
 
                     syncViewerEntries(true)
-                } else if (category === "othermeta") {
+                } else if (category === 'othermeta') {
                     updateGenericMetaEntries(normalizedEventName, meta)
                 }
 
@@ -507,7 +514,7 @@
             }
 
             function processIncomingData(raw) {
-                if (!raw || typeof raw !== "object") return;
+                if (!raw || typeof raw !== 'object') return;
                 if (raw.dataReceived && raw.dataReceived.overlayNinja) {
                     processPayload(raw.dataReceived.overlayNinja);
                     return;
@@ -519,7 +526,7 @@
                 processPayload(raw);
             }
 
-            window.addEventListener("message", function (event) {
+            window.addEventListener('message', function (event) {
                 var payload = null;
 
                 if (event && event.data && event.data.dataReceived && event.data.dataReceived.overlayNinja) {
@@ -536,7 +543,7 @@
                 }
             });
 
-            window.addEventListener("beforeunload", function () {
+            window.addEventListener('beforeunload', function () {
                 sockets.forEach(function (connection) {
                     if (connection.timer) {
                         clearTimeout(connection.timer);
