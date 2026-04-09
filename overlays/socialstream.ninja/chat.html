@@ -1,489 +1,497 @@
 <!DOCTYPE html>
 <html lang="pt-br">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chat Overlay - Social Stream Ninja</title>
-    <style type="text/css">
-        @charset 'UTF-8';
-        @import url('https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css');
-        @import url('https://fonts.googleapis.com/css2?family=Noto Sans');
-
-        *,
-        *:after,
-        *:before {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box
-        }
-
-        * {
-            outline: 0;
-            border: none;
-            font-family: inherit;
-            font-size: 100%;
-            background: transparent;
-            vertical-align: baseline
-        }
-
-        :root {
-            --background-color: #f9fafb;
-            --badge-size: 28px;
-            --emote-size: 42px;
-            --message-background-color: #cbd5e1;
-            --message-letter-spacing: 1px;
-            --message-font-family: 'Noto Sans';
-            --message-font-weight: 600;
-            --message-font-size: 22px;
-            --message-text-color: #030712;
-        }
-
-        body {
-            background-color: #000;
-            overflow: hidden;
-            text-rendering: optimizeLegibility;
-        }
-
-        .main-container {
-            max-width: 100vw;
-            height: 100vh;
-            display: flex;
-            flex-wrap: nowrap;
-            flex-direction: column;
-            justify-content: flex-end;
-            align-items: flex-start;
-            gap: 1rem;
-            padding: 0 1rem 1rem;
-            position: relative;
-            -webkit-mask-image: linear-gradient(0deg, transparent 0%, white 2%, white 85%, transparent 100%);
-            mask-image: linear-gradient(0deg, transparent 0%, white 2%, white 80%, transparent 100%);
-            user-select: none;
-        }
-
-        .chat {
-            --header-height: calc(var(--message-font-size) * 2);
-            --message-background-color: #f9fafb;
-            --message-text-color: #030712;
-
-            flex: 0 0;
-            display: flex;
-            flex-direction: column;
-            flex-wrap: nowrap;
-            align-items: flex-start;
-            font-family: var(--message-font-family);
-            animation-name: fadeInUp, fadeOutUp;
-            animation-duration: 240ms;
-            animation-timing-function: linear, ease-out;
-            animation-fill-mode: backwards, forwards;
-            animation-delay: 0s, 30000ms;
-        }
-
-        .chat.dark {
-            --message-background-color: #0e0e10;
-            --message-text-color: #f9fafb;
-        }
-
-        .chat-header {
-            z-index: 2;
-            flex: 1 0;
-            height: var(--header-height);
-            line-height: var(--header-height);
-            display: flex;
-            flex-wrap: nowrap;
-            flex-direction: row;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .chat-user-badges {
-            flex: 0 1;
-            height: calc(var(--badge-size) * 2);
-            display: flex;
-            flex-wrap: nowrap;
-            flex-direction: row;
-            justify-content: center;
-            align-items: center;
-            gap: 15px;
-            border-radius: 5px;
-            line-height: calc(var(--badge-size) * 2);
-            background-color: transparent;
-            box-shadow: 0 0 1rem rgba(249, 250, 251, .33) inset;
-            margin-left: 5px;
-            transform: scale(.75);
-        }
-
-        .chat-user-badges:not(:empty) {
-            border: 1px solid #64748b;
-            padding: 0 15px;
-        }
-
-        .chat-user-badges>* {
-            width: var(--badge-size);
-            height: var(--badge-size);
-            display: block;
-            object-fit: cover;
-        }
-
-        .source {
-            mask-repeat: no-repeat;
-            mask-position: center;
-            mask-size: var(--badge-size);
-            -webkit-mask-repeat: no-repeat;
-            -webkit-mask-position: center;
-            -webkit-mask-size: var(--badge-size);
-        }
-
-        .source.twitch {
-            background-color: #6441a5;
-            mask-image: url('https://i.imgur.com/DnG97p5.png');
-            -webkit-mask-image: url('https://i.imgur.com/DnG97p5.png');
-        }
-
-        .source.facebook {
-            background-color: #005FED;
-            mask-image: url('https://i.imgur.com/t8pQUvH.png');
-            -webkit-mask-image: url('https://i.imgur.com/t8pQUvH.png');
-        }
-
-        .source.youtube,
-        .source.youtubeshorts {
-            background-color: #f80231;
-            mask-image: url('https://i.imgur.com/PCyzV61.png');
-            -webkit-mask-image: url('https://i.imgur.com/PCyzV61.png');
-        }
-
-        .source.kick {
-            background-color: #00e701;
-            mask-image: url('https://i.imgur.com/GONwTVy.png');
-            -webkit-mask-image: url('https://i.imgur.com/GONwTVy.png');
-        }
-
-        .source.tiktok {
-            background-color: #2af0ea;
-            mask-image: url('https://i.imgur.com/paZ8nLv.png');
-            -webkit-mask-image: url('https://i.imgur.com/paZ8nLv.png');
-        }
-
-        .chat-user-name {
-            flex: 1 0;
-            height: var(--header-height);
-            display: block;
-            white-space: nowrap;
-            overflow: hidden;
-            border-radius: 5px;
-            padding: 0 20px;
-            background-color: var(--color);
-            letter-spacing: calc(var(--message-letter-spacing) * 2);
-            font-weight: 700;
-            font-size: calc(var(--message-font-size) * 1.1);
-            color: #f9fafb;
-        }
-
-        .chat:nth-of-type(3n + 1) .chat-user-name:not(.own) {
-            background-color: #2c4b7d;
-        }
-
-        .chat:nth-of-type(3n + 2) .chat-user-name:not(.own) {
-            background-color: #e2612f;
-        }
-
-        .chat:nth-of-type(3n + 3) .chat-user-name:not(.own) {
-            background-color: #b42f41;
-        }
-
-        .chat-message {
-            z-index: 1;
-            display: flex;
-            padding: 15px 20px;
-            border: 2px solid #64748b;
-            border-radius: 0 10px 10px;
-            margin-left: 1rem;
-            background-color: var(--message-background-color);
-            color: var(--message-text-color);
-        }
-
-        .chat-message-content {
-            flex: 0 0 100%;
-            display: flex;
-            flex-wrap: wrap;
-            flex-direction: row;
-            justify-content: flex-start;
-            align-items: center;
-            overflow: hidden;
-            overflow-wrap: break-word;
-            line-height: calc(var(--message-font-size) * 1.33);
-            letter-spacing: var(--message-letter-spacing);
-            font-weight: var(--message-font-weight);
-            font-size: var(--message-font-size);
-            color: var(--message-text-color);
-        }
-
-        .chat-message-content .emote,
-        .chat-message-content .mention,
-        .chat-message-content .link {
-            display: inline-block;
-            margin: 0 5px;
-        }
-
-        .chat-message-content .mention,
-        .chat-message-content .link {
-            --color-rgb: 85, 136, 255;
-
-            letter-spacing: 1px;
-            color: rgb(var(--color-rgb));
-        }
-
-        .chat-message-content .mention {
-            padding: 0 10px;
-            border-radius: 5px;
-            font-weight: 700;
-            background-color: rgba(var(--color-rgb), .1);
-        }
-
-        .chat:not(.dark) .chat-message-content .mention {
-            background-color: rgba(var(--color-rgb), .4);
-        }
-
-        .chat-message-content img,
-        .chat-message-content .emote,
-        .chat-message-content .emote>* {
-            width: var(--emote-size);
-            height: auto;
-        }
-
-        .chat-message-content img,
-        .chat-message-content .emote {
-            background-size: cover;
-            background-repeat: no-repeat;
-        }
-
-        .chat-message-content img,
-        .chat-message-content .emote>* {
-            -o-object-fit: cover;
-            object-fit: cover;
-        }
-
-        .chat-message-content .link {
-            font-weight: 300;
-        }
-    </style>
-</head>
-
-<body>
-    <main class="main-container"></main>
-
-    <template id="message-template">
-        <article class="chat">
-            <header class="chat-header">
-                <span class="chat-user-name"></span>
-                <aside class="chat-user-badges badges"></aside>
-            </header>
-            <div class="chat-message">
-                <div class="chat-message-content"></div>
-            </div>
-        </article>
-    </template>
-    <template id="link-template">
-        <span class="link"></span>
-    </template>
-    <template id="mention-template">
-        <span class="mention"></span>
-    </template>
-
-    <script type="text/javascript" defer>
-        var urlParams = new URLSearchParams(window.location.search);
-        var roomID = urlParams.has('session') ? urlParams.get('session') : 'iWWnKL28tQ';
-        var password = 'false';
-        var featuredMode = false;
-        var reversed = urlParams.has('reverse');
-
-        const chatContainer = document.querySelector('.main-container');
-        const MAX_MESSAGES = urlParams.has('limit') ? parseInt(urlParams.get('limit')) : 20;
-
-        if (reversed) {
-            chatContainer.style.bottom = 'auto';
-            chatContainer.style.top = '0';
-            chatContainer.classList.add('reverse-mode')
-        }
-
-        const messageTimestamps = new Map();
-
-        function formatMessageText(text) {
-            text = text.toString();
-            text = text?.replace(/(?<![\(\"\'\=])(https?\:\/\/[^\s\<\>\"\'\)]+)/gi, function (match) {
-                const template = document.getElementById('link-template'),
-                    link = template?.content?.cloneNode(true);
-
-                link.querySelector('.link').innerText = match?.toString();
-
-                return link?.firstElementChild?.outerHTML
-            });
-
-            text = text?.replace(/\@([A-Za-z0-9\-\_]{4,})/gi, function (match) {
-                const template = document.getElementById('mention-template'),
-                    mention = template?.content?.cloneNode(true);
-
-                mention.querySelector('.mention').innerText = match?.toString();
-
-                return mention?.firstElementChild?.outerHTML
-            });
-
-            return text
-        }
-
-        function setBadge(src) {
-            if (!src) return;
-
-            const image = new Image();
-            const element = document.createElement('img');
-
-            image.onload = function (e) {
-                element.classList.add('badge');
-                element.src = e?.target?.src;
-            };
-
-            image.src = src;
-            return element
-        }
-
-        function setSource(name) {
-            if (!name) return;
-
-            const element = document.createElement('span');
-            element.classList.add('source', name);
-
-            return element
-        }
-
-        function addMessageToOverlay(data) {
-            if ((!data.chatname || !data.chatmessage) || (data.hasDonation || data.donation))
-                return;
-
-            const template = document.getElementById('message-template');
-            const content = template?.content?.cloneNode(true);
-
-            const messageElement = content.querySelector('.chat');
-            const messageId = data?.mid || `msg-${Date.now()}`;
-
-            if (urlParams.has('darkMode'))
-                messageElement.classList.add('dark');
-
-            messageElement.setAttribute('id', messageId);
-            messageElement.setAttribute('data-platform', data.type);
-            messageElement.setAttribute('data-from', data.chatname);
-            messageTimestamps.set(messageId, Date.now());
-
-            if (data.chatbadges) {
-                data.chatbadges?.forEach(badge => {
-                    if (typeof badge === 'object') {
-                        if (badge.type === 'img' && badge.src)
-                            content.querySelector('.chat-user-badges').appendChild(setBadge(badge.src));
-                        else if (badge.type === 'svg' && badge.html) {
-                            var base = document.createElement('span');
-                            var svg = document.createElement('svg');
-
-                            svg.innerHTML = badge.html
-
-                            base.classList.add('badge');
-                            base.appendChild(svg)
-                        }
-
-                        return
-                    }
-                    
-                    content.querySelector('.chat-user-badges').appendChild(setBadge(badge))
-                })
-            }
-
-            if (data?.type)
-                content.querySelector('.chat-user-badges').appendChild(setSource(data.type));
-
-            content.querySelector('.chat-user-name').innerText = data?.chatname;
-
-            if (data?.nameColor)
-                content.querySelector('.chat-user-name').setAttribute('style', `--color: ${data.nameColor}`);
-
-            content.querySelector('.chat-message-content').innerHTML = data?.chatmessage ? formatMessageText(data?.chatmessage) : '';
-
-            if (reversed) {
-                const firstMessage = chatContainer.querySelector('.message');
-
-                if (firstMessage)
-                    chatContainer.insertBefore(messageElement, firstMessage);
-                else
-                    chatContainer.appendChild(messageElement);
-
-            } else
-                chatContainer.appendChild(messageElement);
-
-            void messageElement.offsetWidth;
-
-            const messages = Array.from(chatContainer.children).filter(
-                child => child.classList.contains('message')
-            );
-
-            if (messages.length > MAX_MESSAGES) {
-                const oldestMessage = reversed ? messages[messages.length - 1] : messages[0];
-
-                if (oldestMessage) {
-                    messageTimestamps.delete(oldestMessage.id);
-                    chatContainer.removeChild(oldestMessage);
-                }
-            }
-        }
-
-        var iframe = document.createElement('iframe');
-        if (featuredMode)
-            iframe.src = `https://vdo.socialstream.ninja/?ln&password=${password}&salt=vdo.ninja&label=overlay&exclude=${roomID}&scene&novideo&noaudio&cleanoutput&room=${roomID}`;
-        else
-            iframe.src = `https://vdo.socialstream.ninja/?ln&salt=vdo.ninja&password=${password}&push&label=dock&vd=0&ad=0&novideo&noaudio&autostart&cleanoutput&room=${roomID}`;
-
-        iframe.style.cssText = 'width:0;height:0;position:fixed;left:-100px;top:-100px';
-        document.body.appendChild(iframe);
-        window.addEventListener('message', function (e) {
-            if (e.source != iframe.contentWindow) return;
-
-            if (e.data.dataReceived && e.data.dataReceived.overlayNinja)
-                addMessageToOverlay(e.data.dataReceived.overlayNinja);
-        });
-
-        var conCon = 1;
-        var socketserver = false;
-        var serverURL = urlParams.has('localserver') ? 'ws://127.0.0.1:3000' : 'wss://io.socialstream.ninja';
-
-        function setupSocket() {
-            socketserver.onclose = function () {
-                setTimeout(function () {
-                    conCon += 1;
-                    socketserver = new WebSocket(serverURL);
-                    setupSocket();
-                }, 100 * conCon);
-            };
-            socketserver.onopen = function () {
-                conCon = 1;
-                socketserver.send(JSON.stringify({ 'join': roomID, 'out': 3, 'in': 4 }));
-            };
-            socketserver.addEventListener('message', function (event) {
-                if (event.data) {
-                    try {
-                        var data = JSON.parse(event.data);
-                        if (data)
-                            addMessageToOverlay(data);
-
-                    } catch (error) {
-                        console.error('Error processing WebSocket message:', error, 'Data:', event.data);
-                    }
-                }
-            })
-        }
-
-        if (urlParams.has('server') || urlParams.has('server2')) {
-            serverURL = urlParams.get('server') || urlParams.get('server2') || serverURL;
-            socketserver = new WebSocket(serverURL);
-            setupSocket()
-        }
-    </script>
-</body>
-
+	<head>
+	    <meta charset="UTF-8">
+	    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+	    <title>Chat Overlay - Social Stream Ninja</title>
+	    <style type="text/css">
+	        @charset 'UTF-8';
+	        @import url('https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css');
+	        @import url('https://fonts.googleapis.com/css2?family=Noto Sans');
+	
+	        *,
+	        *:after,
+	        *:before {
+	            margin: 0;
+	            padding: 0;
+	            box-sizing: border-box
+	        }
+	
+	        * {
+	            outline: 0;
+	            border: none;
+	            font-family: inherit;
+	            font-size: 100%;
+	            background: transparent;
+	            vertical-align: baseline
+	        }
+	
+	        :root {
+	            --background-color: #f9fafb;
+	            --badge-size: 28px;
+	            --emote-size: 42px;
+	            --message-background-color: #cbd5e1;
+	            --message-letter-spacing: 1px;
+	            --message-font-family: 'Noto Sans';
+	            --message-font-weight: 600;
+	            --message-font-size: 22px;
+	            --message-text-color: #030712;
+	        }
+	
+	        body {
+	            background-color: #000;
+	            overflow: hidden;
+	            text-rendering: optimizeLegibility;
+	        }
+	
+	        .main-container {
+	            max-width: 100vw;
+	            height: 100vh;
+	            display: flex;
+	            flex-wrap: nowrap;
+	            flex-direction: column;
+	            justify-content: flex-end;
+	            align-items: flex-start;
+	            gap: 1rem;
+	            padding: 0 1rem 1rem;
+	            position: relative;
+	            -webkit-mask-image: linear-gradient(0deg, transparent 0%, white 2%, white 85%, transparent 100%);
+	            mask-image: linear-gradient(0deg, transparent 0%, white 2%, white 80%, transparent 100%);
+	            user-select: none;
+	        }
+	
+	        .main-container.reverse {
+	            flex-direction: column-reverse;
+	        }
+	
+	        .chat {
+	            --header-height: calc(var(--message-font-size) * 2);
+	            --message-background-color: #f9fafb;
+	            --message-text-color: #030712;
+	
+	            flex: 0 0;
+	            display: flex;
+	            flex-direction: column;
+	            flex-wrap: nowrap;
+	            align-items: flex-start;
+	            font-family: var(--message-font-family);
+	            animation-name: fadeInUp, fadeOutUp;
+	            animation-duration: 240ms;
+	            animation-timing-function: linear, ease-out;
+	            animation-fill-mode: backwards, forwards;
+	            animation-delay: 0s, 30000ms;
+	        }
+	
+	        .chat.dark {
+	            --message-background-color: #0e0e10;
+	            --message-text-color: #f9fafb;
+	        }
+	
+	        .chat-header {
+	            z-index: 2;
+	            flex: 1 0;
+	            height: var(--header-height);
+	            line-height: var(--header-height);
+	            display: flex;
+	            flex-wrap: nowrap;
+	            flex-direction: row;
+	            justify-content: space-between;
+	            align-items: center;
+	        }
+	
+	        .chat-user-badges {
+	            flex: 0 1;
+	            height: calc(var(--badge-size) * 2);
+	            display: flex;
+	            flex-wrap: nowrap;
+	            flex-direction: row;
+	            justify-content: center;
+	            align-items: center;
+	            gap: 15px;
+	            border-radius: 5px;
+	            line-height: calc(var(--badge-size) * 2);
+	            background-color: transparent;
+	            box-shadow: 0 0 1rem rgba(249, 250, 251, .33) inset;
+	            margin-left: 5px;
+	            transform: scale(.75);
+	        }
+	
+	        .chat-user-badges:not(:empty) {
+	            border: 1px solid #64748b;
+	            padding: 0 15px;
+	        }
+	
+	        .chat-user-badges>* {
+	            width: var(--badge-size);
+	            height: var(--badge-size);
+	            display: block;
+	            object-fit: cover;
+	        }
+	
+	        .source {
+	            mask-repeat: no-repeat;
+	            mask-position: center;
+	            mask-size: var(--badge-size);
+	            -webkit-mask-repeat: no-repeat;
+	            -webkit-mask-position: center;
+	            -webkit-mask-size: var(--badge-size);
+	        }
+	
+	        .source.twitch {
+	            background-color: #6441a5;
+	            mask-image: url('https://i.imgur.com/DnG97p5.png');
+	            -webkit-mask-image: url('https://i.imgur.com/DnG97p5.png');
+	        }
+	
+	        .source.facebook {
+	            background-color: #005FED;
+	            mask-image: url('https://i.imgur.com/t8pQUvH.png');
+	            -webkit-mask-image: url('https://i.imgur.com/t8pQUvH.png');
+	        }
+	
+	        .source.youtube,
+	        .source.youtubeshorts {
+	            background-color: #f80231;
+	            mask-image: url('https://i.imgur.com/PCyzV61.png');
+	            -webkit-mask-image: url('https://i.imgur.com/PCyzV61.png');
+	        }
+	
+	        .source.kick {
+	            background-color: #00e701;
+	            mask-image: url('https://i.imgur.com/GONwTVy.png');
+	            -webkit-mask-image: url('https://i.imgur.com/GONwTVy.png');
+	        }
+	
+	        .source.tiktok {
+	            background-color: #2af0ea;
+	            mask-image: url('https://i.imgur.com/paZ8nLv.png');
+	            -webkit-mask-image: url('https://i.imgur.com/paZ8nLv.png');
+	        }
+	
+	        .chat-user-name {
+	            flex: 1 0;
+	            height: var(--header-height);
+	            display: block;
+	            white-space: nowrap;
+	            overflow: hidden;
+	            border-radius: 5px;
+	            padding: 0 20px;
+	            background-color: var(--color);
+	            letter-spacing: calc(var(--message-letter-spacing) * 2);
+	            font-weight: 700;
+	            font-size: calc(var(--message-font-size) * 1.1);
+	            color: #f9fafb;
+	        }
+	
+	        .chat:nth-of-type(3n + 1) .chat-user-name:not(.own) {
+	            background-color: #2c4b7d;
+	        }
+	
+	        .chat:nth-of-type(3n + 2) .chat-user-name:not(.own) {
+	            background-color: #e2612f;
+	        }
+	
+	        .chat:nth-of-type(3n + 3) .chat-user-name:not(.own) {
+	            background-color: #b42f41;
+	        }
+	
+	        .chat-message {
+	            z-index: 1;
+	            display: flex;
+	            padding: 15px 20px;
+	            border: 2px solid #64748b;
+	            border-radius: 0 10px 10px;
+	            margin-left: 1rem;
+	            background-color: var(--message-background-color);
+	            color: var(--message-text-color);
+	        }
+	
+	        .chat-message-content {
+	            flex: 0 0 100%;
+	            display: flex;
+	            flex-wrap: wrap;
+	            flex-direction: row;
+	            justify-content: flex-start;
+	            align-items: center;
+	            overflow: hidden;
+	            overflow-wrap: break-word;
+	            line-height: calc(var(--message-font-size) * 1.33);
+	            letter-spacing: var(--message-letter-spacing);
+	            font-weight: var(--message-font-weight);
+	            font-size: var(--message-font-size);
+	            color: var(--message-text-color);
+	        }
+	
+	        .chat-message-content .emote,
+	        .chat-message-content .mention,
+	        .chat-message-content .link {
+	            display: inline-block;
+	            margin: 0 5px;
+	        }
+	
+	        .chat-message-content .mention,
+	        .chat-message-content .link {
+	            --color-rgb: 85, 136, 255;
+	
+	            letter-spacing: 1px;
+	            color: rgb(var(--color-rgb));
+	        }
+	
+	        .chat-message-content .mention {
+	            padding: 0 10px;
+	            border-radius: 5px;
+	            font-weight: 700;
+	            background-color: rgba(var(--color-rgb), .1);
+	        }
+	
+	        .chat:not(.dark) .chat-message-content .mention {
+	            background-color: rgba(var(--color-rgb), .4);
+	        }
+	
+	        .chat-message-content img,
+	        .chat-message-content .emote,
+	        .chat-message-content .emote>* {
+	            width: var(--emote-size);
+	            height: auto;
+	        }
+	
+	        .chat-message-content img,
+	        .chat-message-content .emote {
+	            background-size: cover;
+	            background-repeat: no-repeat;
+	        }
+	
+	        .chat-message-content img,
+	        .chat-message-content .emote>* {
+	            -o-object-fit: cover;
+	            object-fit: cover;
+	        }
+	
+	        .chat-message-content .link {
+	            font-weight: 300;
+	        }
+	    </style>
+	</head>
+	
+	<body>
+	    <main class="main-container"></main>
+	
+	    <template id="message-template">
+	        <article class="chat">
+	            <header class="chat-header">
+	                <span class="chat-user-name"></span>
+	                <aside class="chat-user-badges badges"></aside>
+	            </header>
+	            <div class="chat-message">
+	                <div class="chat-message-content"></div>
+	            </div>
+	        </article>
+	    </template>
+	    <template id="link-template">
+	        <span class="link"></span>
+	    </template>
+	    <template id="mention-template">
+	        <span class="mention"></span>
+	    </template>
+	
+	    <script type="text/javascript" defer>
+	        var urlParams = new URLSearchParams(window.location.search);
+	        var roomID = urlParams.has('session') ? urlParams.get('session') : 'iWWnKL28tQ';
+	        var password = 'false';
+	        var featuredMode = false;
+	        var reversed = urlParams.has('reverse');
+	
+	        const chatContainer = document.querySelector('.main-container');
+	
+	        const MAX_BADGES = urlParams.has('limitbadges') ? parseInt(urlParams.get('limitbadges')) : Infinity;
+	        const HIDE_COMMANDS = urlParams.has('hidecommands') ? true : false;
+	        const MAX_MESSAGES = urlParams.has('limit') ? parseInt(urlParams.get('limit')) : Infinity;
+	
+	        if (reversed)
+	            chatContainer.classList.add('reverse')
+	
+	        const messageTimestamps = new Map();
+	
+	        function formatMessageText(text) {
+	            text = text.toString();
+	            text = text?.replace(/(?<![\(\"\'\=])(https?\:\/\/[^\s\<\>\"\'\)]+)/gi, function (match) {
+	                const template = document.getElementById('link-template'),
+	                    link = template?.content?.cloneNode(true);
+	
+	                link.querySelector('.link').innerText = match?.toString();
+	
+	                return link?.firstElementChild?.outerHTML
+	            });
+	
+	            text = text?.replace(/\@([A-Za-z0-9\-\_]{4,})/gi, function (match) {
+	                const template = document.getElementById('mention-template'),
+	                    mention = template?.content?.cloneNode(true);
+	
+	                mention.querySelector('.mention').innerText = match?.toString();
+	
+	                return mention?.firstElementChild?.outerHTML
+	            });
+	
+	            return text
+	        }
+	
+	        function setBadge(src) {
+	            if (!src) return;
+	
+	            const image = new Image();
+	            const element = document.createElement('img');
+	
+	            image.onload = function (e) {
+	                element.classList.add('badge');
+	                element.src = e?.target?.src;
+	            };
+	
+	            image.src = src;
+	            return element
+	        }
+	
+	        function setSource(name) {
+	            if (!name) return;
+	
+	            const element = document.createElement('span');
+	            element.classList.add('source', name);
+	
+	            return element
+	        }
+	
+	        function addMessageToOverlay(data) {
+	            if ((!data.chatname || !data.chatmessage) || (data.hasDonation || data.donation))
+	                return;
+	
+	            if (HIDE_COMMANDS && data?.chatmessage.startsWith('!'))
+	                return;
+	
+	            const template = document.getElementById('message-template');
+	            const content = template?.content?.cloneNode(true);
+	
+	            const messageElement = content.querySelector('.chat');
+	            const messageId = data?.mid || `msg-${Date.now()}`;
+	
+	            if (urlParams.has('darkMode'))
+	                messageElement.classList.add('dark');
+	
+	            messageElement.setAttribute('id', messageId);
+	            messageElement.setAttribute('data-platform', data.type);
+	            messageElement.setAttribute('data-from', data.chatname);
+	            messageTimestamps.set(messageId, Date.now());
+	
+	            if (data?.type)
+	                content.querySelector('.chat-user-badges').appendChild(setSource(data.type));
+	
+	            if (data.chatbadges) {
+	                data.chatbadges?.slice(0, MAX_BADGES)?.forEach(badge => {
+	                    if (typeof badge === 'object') {
+	                        if (badge.type === 'img' && badge.src)
+	                            content.querySelector('.chat-user-badges').appendChild(setBadge(badge.src));
+	                        else if (badge.type === 'svg' && badge.html) {
+	                            var base = document.createElement('span');
+	                            var svg = document.createElement('svg');
+	
+	                            svg.innerHTML = badge.html
+	
+	                            base.classList.add('badge');
+	                            base.appendChild(svg)
+	                        }
+	
+	                        return
+	                    }
+	                    
+	                    content.querySelector('.chat-user-badges').appendChild(setBadge(badge))
+	                })
+	            }
+	
+	            content.querySelector('.chat-user-name').innerText = data?.chatname;
+	
+	            if (data?.nameColor)
+	                content.querySelector('.chat-user-name').setAttribute('style', `--color: ${data.nameColor}`);
+	
+	            content.querySelector('.chat-message-content').innerHTML = data?.chatmessage ? formatMessageText(data?.chatmessage) : '';
+	
+	            if (reversed) {
+	                const firstMessage = chatContainer.querySelector('.chat');
+	
+	                if (firstMessage)
+	                    chatContainer.insertBefore(messageElement, firstMessage);
+	                else
+	                    chatContainer.appendChild(messageElement);
+	            } else
+	                chatContainer.appendChild(messageElement);
+	
+	            void messageElement.offsetWidth;
+	
+	            const messages = Array.from(chatContainer.children).filter(
+	                child => child.classList.contains('chat')
+	            );
+	
+	            setTimeout(() => {
+	                chatContainer.removeChild(messageElement)
+	            }, 30240);
+	
+	            if (messages.length > MAX_MESSAGES) {
+	                const oldestMessage = reversed ? messages[messages.length - 1] : messages[0];
+	
+	                if (oldestMessage) {
+	                    messageTimestamps.delete(oldestMessage.id);
+	                    chatContainer.removeChild(oldestMessage);
+	                }
+	            }
+	        }
+	
+	        var iframe = document.createElement('iframe');
+	        if (featuredMode)
+	            iframe.src = `https://vdo.socialstream.ninja/?ln&password=${password}&salt=vdo.ninja&label=overlay&exclude=${roomID}&scene&novideo&noaudio&cleanoutput&room=${roomID}`;
+	        else
+	            iframe.src = `https://vdo.socialstream.ninja/?ln&salt=vdo.ninja&password=${password}&push&label=dock&vd=0&ad=0&novideo&noaudio&autostart&cleanoutput&room=${roomID}`;
+	
+	        iframe.style.cssText = 'width:0;height:0;position:fixed;left:-100px;top:-100px';
+	        document.body.appendChild(iframe);
+	        window.addEventListener('message', function (e) {
+	            if (e.source != iframe.contentWindow) return;
+	
+	            if (e.data.dataReceived && e.data.dataReceived.overlayNinja)
+	                addMessageToOverlay(e.data.dataReceived.overlayNinja);
+	        });
+	
+	        var conCon = 1;
+	        var socketserver = false;
+	        var serverURL = urlParams.has('localserver') ? 'ws://127.0.0.1:3000' : 'wss://io.socialstream.ninja';
+	
+	        function setupSocket() {
+	            socketserver.onclose = function () {
+	                setTimeout(function () {
+	                    conCon += 1;
+	                    socketserver = new WebSocket(serverURL);
+	                    setupSocket();
+	                }, 100 * conCon);
+	            };
+	            socketserver.onopen = function () {
+	                conCon = 1;
+	                socketserver.send(JSON.stringify({ 'join': roomID, 'out': 3, 'in': 4 }));
+	            };
+	            socketserver.addEventListener('message', function (event) {
+	                if (event.data) {
+	                    try {
+	                        var data = JSON.parse(event.data);
+	                        if (data)
+	                            addMessageToOverlay(data);
+	
+	                    } catch (error) {
+	                        console.error('Error processing WebSocket message:', error, 'Data:', event.data);
+	                    }
+	                }
+	            })
+	        }
+	
+	        if (urlParams.has('server') || urlParams.has('server2')) {
+	            serverURL = urlParams.get('server') || urlParams.get('server2') || serverURL;
+	            socketserver = new WebSocket(serverURL);
+	            setupSocket()
+	        }
+	    </script>
+	</body>
 </html>
