@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Views Overlay - Social Stream Ninja</title>
+    <style type="text/css">
+        @import url('https://fonts.googleapis.com/css2?family=Noto Sans');
+        @import url('https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css');
+
+        @keyframes shimmer {
+            60% {
+                transform: inherit
+            }
+
+            100% {
+                transform: skewX(-25deg) translateX(100%)
+            }
+        }
+
+        @keyframes pop {
+            0%, 100% { transform: inherit; }
+            50% { transform: scale(1.1); }
+        }
+
+        *,
+        *:after,
+        *:before {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box
+        }
+
+        * {
+            outline: 0;
+            border: none;
+            font-family: inherit;
+            font-size: 100%;
+            background: transparent;
+            vertical-align: baseline
+        }
+
+        :root {
+            --font-family: 'Noto Sans';
+            --font-weight: 900;
+            --font-color: #e8f2fa;
+            --size: 56px;
+        }
+
+        body {
+            background-color: #000;
+            overflow: hidden;
+            text-rendering: optimizeLegibility;
+        }
+
+        #platform_container {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-wrap: nowrap;
+            flex-direction: row;
+            justify-content: center;
+            align-items: center;
+            gap: 2rem;
+            transition: filter 180ms ease;
+            -webkit-mask-image: linear-gradient(180deg, white 20%, white 80%, transparent 100%);
+            mask-image: linear-gradient(180deg, white 20%, white 80%, transparent 100%);
+        }
+
+        .animate-pop {
+            animation: pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .platform {
+            flex: 1 0;
+            display: flex;
+            flex-wrap: nowrap;
+            flex-direction: row;
+            justify-content: center;
+            align-items: center;
+            gap: 2rem;
+            padding: 1rem 2rem;
+            border: 1px solid #64748b;
+            /*border-radius: 100px;*/
+            overflow: hidden;
+            box-shadow: 0 0 1rem rgba(249, 250, 251, .33) inset;
+            background-color: rgba(31, 41, 55, .2);
+            user-select: none;
+            animation-name: fadeIn;
+            animation-duration: 360ms;
+            animation-timing-function: linear;
+            animation-fill-mode: backwards;
+            -webkit-backdrop-filter: blur(10px) grayscale(.8) opacity(.6);
+            backdrop-filter: blur(10px) grayscale(.8) opacity(.6);
+            position: relative;
+        }
+
+        .platform::after {
+            content: '';
+            background-image: linear-gradient(90deg, transparent 0%, #f9fafb 50%, transparent);
+            -webkit-filter: opacity(.05);
+            filter: opacity(.05);
+            transform: skewX(40deg) translateX(-100%);
+            animation-name: shimmer;
+            animation-timing-function: linear;
+            animation-fill-mode: alternate;
+            animation-iteration-count: infinite;
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            left: 0;
+            top: 0;
+        }
+
+        .platform:nth-child(odd)::after {
+            animation-duration: 2s;
+            animation-delay: 5s;
+        }
+
+        .platform:nth-child(even)::after {
+            animation-duration: 1s;
+            animation-delay: 10s;
+        }
+
+        .icon {
+            width: var(--size);
+            height: var(--size);
+            display: block;
+            background-color: var(--font-color);
+            mask-repeat: no-repeat;
+            mask-position: center;
+            mask-size: var(--size);
+            mask-image: url('https://i.imgur.com/fJjGz7i.png');
+            -webkit-mask-repeat: no-repeat;
+            -webkit-mask-position: center;
+            -webkit-mask-size: var(--size);
+            -webkit-mask-image: url('https://i.imgur.com/fJjGz7i.png');
+        }
+
+        .icon.twitch {
+            background-color: #6441a5;
+            mask-image: url('https://i.imgur.com/DnG97p5.png');
+            -webkit-mask-image: url('https://i.imgur.com/DnG97p5.png');
+        }
+
+        .icon.facebook {
+            background-color: #005FED;
+            mask-image: url('https://i.imgur.com/t8pQUvH.png');
+            -webkit-mask-image: url('https://i.imgur.com/t8pQUvH.png');
+        }
+
+        .icon.youtube {
+            background-color: #f80231;
+            mask-image: url('https://i.imgur.com/PCyzV61.png');
+            -webkit-mask-image: url('https://i.imgur.com/PCyzV61.png');
+        }
+
+        .icon.kick {
+            background-color: #00e701;
+            mask-image: url('https://i.imgur.com/GONwTVy.png');
+            -webkit-mask-image: url('https://i.imgur.com/GONwTVy.png');
+        }
+
+        .icon.tiktok {
+            background-color: #2af0ea;
+            mask-image: url('https://i.imgur.com/paZ8nLv.png');
+            -webkit-mask-image: url('https://i.imgur.com/paZ8nLv.png');
+        }
+
+        .views {
+            display: inline-block;
+            overflow: hidden;
+            letter-spacing: 2px;
+            line-height: var(--size);
+            font-family: var(--font-family);
+            font-weight: var(--font-weight);
+            font-size: calc(var(--size) * .85);
+            color: #e8f2fa;
+            text-align: center;
+            text-overflow: ellipsis;
+            transition: color 0.3s ease;
+        }
+    </style>
+</head>
+
+<body>
+    <main id="platform_container"></main>
+    <template id="platform-template">
+        <div class="platform">
+            <span class="icon"></span>
+            <span class="views"></span>
+        </div>
+    </template>
+    <script type="text/javascript">
+        (function () {
+            const container = document.getElementById("platform_container");
+            const urlParams = new URLSearchParams(window.location.search);
+            const state = new Map();
+            const sockets = [];
+            const hasServerMode = urlParams.has("server") || urlParams.has("server2") || urlParams.has("server3");
+
+            var viewerCounts = Object.create(null);
+            var sequenceCounter = 0;
+            var iframe = null;
+
+            function formatNumberShort(number, precision = 1) {
+                number = Number(number);
+
+                if (number < 1000) return number;
+
+                const suffixes = ["K", "M", "B", "T"];
+                const suffixIndex = Math.floor(Math.log10(number) / 3) - 1;
+                
+                let shortValue = number / Math.pow(1000, suffixIndex + 1);
+
+                return `${parseFloat(shortValue.toFixed(precision))}${suffixes[suffixIndex]}`
+            }
+
+            function parseNumber(value) {
+                if (typeof value === "number" && Number.isFinite(value))
+                    return value;
+
+                if (typeof value === "string") {
+                    var cleaned = value.replace(/[^0-9.-]/g, "");
+                    if (!cleaned) return null;
+                    var parsed = parseFloat(cleaned);
+                    return Number.isFinite(parsed) ? parsed : null;
+                }
+
+                return null;
+            }
+
+            function normalizeEventName(eventName) {
+                if (typeof eventName !== "string") return "";
+                return eventName
+                    .toLowerCase()
+                    .replace(/[^a-z0-9]+/g, "_")
+                    .replace(/_+/g, "_")
+                    .replace(/^_+|_+$/g, "");
+            }
+
+            function getEventCategory(normalizedEventName) {
+                if (normalizedEventName === "auction_update") return "auction";
+                if (normalizedEventName === "commerce_update") return "commerce";
+                if (normalizedEventName === "viewer_update" || normalizedEventName === "viewer_updates") return "viewers";
+                return "othermeta";
+            }
+
+            function eventIsEnabled(normalizedEventName) {
+                var category = getEventCategory(normalizedEventName);
+                return category !== "othermeta"
+            }
+
+            function isPlainObject(value) {
+                return Object.prototype.toString.call(value) === "[object Object]";
+            }
+
+            function syncViewerEntries(replaceSnapshot) {
+                if (replaceSnapshot) {
+                    Array.from(state.keys()).forEach(function (key) {
+                        if (key.indexOf("viewers.platform.") === 0) {
+                            var platform = key.replace("viewers.platform.", "");
+                            if (!Object.prototype.hasOwnProperty.call(viewerCounts, platform)) {
+                                state.delete(key);
+                            }
+                        }
+                    });
+                }
+
+                var platforms = Object.keys(viewerCounts).sort();
+                var total = 0;
+                for (var i = 0; i < platforms.length; i++) {
+                    var platform = platforms[i];
+                    var count = parseNumber(viewerCounts[platform]);
+                    if (count === null) continue;
+                    total += count;
+                    setEntry(
+                        "viewers.platform." + platform,
+                        platform,
+                        platform.toUpperCase() + " Viewers",
+                        count,
+                        "viewers." + platform,
+                        "viewers",
+                        210 + i
+                    );
+                }
+
+                if (platforms.length) {
+                    setEntry("viewers.total", "all", "Total Viewers", total, "viewers.total", "viewers", 205);
+                } else {
+                    state.delete("viewers.total");
+                }
+            }
+
+            function setEntry(id, platform, label, value, fieldKey, category, order) {
+                if (!id) return;
+
+                var existing = state.get(id);
+                state.set(id, {
+                    id,
+                    platform,
+                    label,
+                    value,
+                    category: category || "othermeta",
+                    order: Number.isFinite(order) ? order : 500,
+                    sequence: existing ? existing.sequence : ++sequenceCounter
+                });
+            }
+
+            function render() {
+                var entries = Array.from(state.values()).sort(function (a, b) {
+                    if (a.order !== b.order) return a.order - b.order;
+                    return a.sequence - b.sequence;
+                });
+
+                for (var i = 0; i < entries.length; i++) {
+                    var entry = entries[i];
+                    var element = document.body.querySelector(`.platform[data-platform="${entry?.platform}"]`);
+
+                    if (element) {
+                        let views = element?.querySelector('.views');
+
+                        if (views.getAttribute('data-value') !== entry?.value) {
+                            views.setAttribute('data-value', entry?.value);
+                            views.innerText = formatNumberShort(entry?.value);
+
+                            views.classList.remove('animate-pop');
+                            void views.offsetWidth;
+                            views.classList.add('animate-pop');
+                            
+                            setTimeout(() => {
+                                views.classList.remove('animate-pop')
+                            }, 400)
+                        }
+                        continue
+                    }
+
+                    var template = document?.getElementById('platform-template');
+                    var content = template?.content?.cloneNode(true);
+
+                    var base = content?.querySelector('.platform');
+                    var views = content?.querySelector('.views');
+                    var icon = content?.querySelector('.icon');
+
+                    base?.setAttribute('data-platform', entry?.platform);
+                    base?.classList.add(entry?.platform);
+                    icon?.classList.add(entry?.platform);
+                    views.setAttribute('data-value', entry?.value);
+                    views.innerText = formatNumberShort(entry?.value);
+
+                    container.appendChild(base)
+                }
+            }
+
+            function connectIframe() {
+                var sessionId = urlParams.get("session");
+                if (!sessionId || hasServerMode) return;
+
+                var password = encodeURIComponent(urlParams.get("password") || "false");
+                var lanonly = urlParams.has("lanonly") ? "&lanonly" : "";
+                iframe = document.createElement("iframe");
+                iframe.src = `https://vdo.socialstream.ninja/?ln&salt=vdo.ninja&notmobile&password=${password + lanonly}&solo&view=${encodeURIComponent(sessionId)}&novideo&noaudio&label=meta&cleanoutput&room=${encodeURIComponent(sessionId)}`;
+                iframe.style.cssText = 'width:0;height:0;position:fixed;left:-100px;top:-100px';
+                document.body.appendChild(iframe);
+            }
+
+            function connectSocket(serverURL, roomId, outChannel, inChannel) {
+                if (!serverURL || !roomId) return;
+
+                var connection = {
+                    socket: null,
+                    attempts: 1,
+                    timer: null,
+                    closed: false
+                };
+                sockets.push(connection);
+
+                function scheduleReconnect() {
+                    if (connection.closed) return;
+                    var delay = Math.min(12000, 200 * connection.attempts);
+                    if (connection.timer) {
+                        clearTimeout(connection.timer);
+                    }
+                    connection.timer = setTimeout(function () {
+                        connection.attempts += 1;
+                        connectNow();
+                    }, delay);
+                }
+
+                function connectNow() {
+                    if (connection.closed) return;
+                    try {
+                        connection.socket = new WebSocket(serverURL);
+                    } catch (e) {
+                        scheduleReconnect();
+                        return;
+                    }
+
+                    connection.socket.onopen = function () {
+                        connection.attempts = 1;
+                        try {
+                            connection.socket.send(JSON.stringify({
+                                join: roomId,
+                                out: outChannel,
+                                in: inChannel
+                            }));
+                        } catch (e) { }
+                    };
+
+                    connection.socket.onmessage = function (event) {
+                        if (!event || !event.data) return;
+                        try {
+                            var parsed = JSON.parse(event.data);
+                            processIncomingData(parsed);
+                            if (parsed && parsed.get) {
+                                connection.socket.send(JSON.stringify({
+                                    callback: {
+                                        get: parsed.get,
+                                        result: true
+                                    }
+                                }));
+                            }
+                        } catch (e) { }
+                    };
+
+                    connection.socket.onerror = function () {
+                        try {
+                            connection.socket.close();
+                        } catch (e) { }
+                    };
+
+                    connection.socket.onclose = function () {
+                        scheduleReconnect();
+                    };
+                }
+
+                connectNow()
+            }
+
+            function connectServerModes() {
+                var roomId = (urlParams.get("session") || "").split(",")[0];
+                if (!roomId) return;
+
+                if (urlParams.has("server")) {
+                    var apiServerURL = urlParams.get("server") || (urlParams.has("localserver") ? "ws://127.0.0.1:3000" : "wss://io.socialstream.ninja/api");
+                    connectSocket(apiServerURL, roomId, 2, 1);
+                }
+
+                if (urlParams.has("server2") || urlParams.has("server3")) {
+                    var extensionServerURL = urlParams.has("server2")
+                        ? (urlParams.get("server2") || "wss://io.socialstream.ninja/extension")
+                        : (urlParams.get("server3") || "wss://io.socialstream.ninja/extension");
+                    connectSocket(extensionServerURL, roomId, 3, 4);
+                }
+            }
+
+            function processIncomingData(raw) {
+                if (!raw || typeof raw !== "object") return;
+                if (raw.dataReceived && raw.dataReceived.overlayNinja) {
+                    processPayload(raw.dataReceived.overlayNinja);
+                    return;
+                }
+                if (raw.overlayNinja) {
+                    processPayload(raw.overlayNinja);
+                    return;
+                }
+                processPayload(raw);
+            }
+
+            function processPayload(data) {
+                if (!data || typeof data !== "object") return;
+                if (data.content && typeof data.content === "object") {
+                    data = data.content;
+                }
+
+                var normalizedEventName = normalizeEventName(data.event || data.type || "");
+                if (!normalizedEventName || typeof data.meta === "undefined" || data.meta === null) return;
+                if (!eventIsEnabled(normalizedEventName)) return;
+
+                var meta = data.meta;
+                var category = getEventCategory(normalizedEventName);
+
+                if (normalizedEventName === "viewer_update") {
+                    var platformName = (data.type || data.platform || "").toString().toLowerCase();
+                    var singleCount = parseNumber(meta);
+
+                    if (platformName && singleCount !== null) {
+                        viewerCounts[platformName] = singleCount;
+                        syncViewerEntries(false)
+                    }
+                } else if (normalizedEventName === "viewer_updates" && isPlainObject(meta)) {
+                    viewerCounts = Object.create(null);
+                    Object.keys(meta).forEach(function (platform) {
+                        var numeric = parseNumber(meta[platform]);
+                        if (numeric !== null) {
+                            viewerCounts[platform] = numeric;
+                        }
+                    });
+
+                    syncViewerEntries(true)
+                } else if (category === "othermeta") {
+                    updateGenericMetaEntries(normalizedEventName, meta)
+                }
+
+                render()
+            }
+
+            function processIncomingData(raw) {
+                if (!raw || typeof raw !== "object") return;
+                if (raw.dataReceived && raw.dataReceived.overlayNinja) {
+                    processPayload(raw.dataReceived.overlayNinja);
+                    return;
+                }
+                if (raw.overlayNinja) {
+                    processPayload(raw.overlayNinja);
+                    return;
+                }
+                processPayload(raw);
+            }
+
+            window.addEventListener("message", function (event) {
+                var payload = null;
+
+                if (event && event.data && event.data.dataReceived && event.data.dataReceived.overlayNinja) {
+                    if (iframe && event.source !== iframe.contentWindow) {
+                        return;
+                    }
+                    payload = event.data.dataReceived.overlayNinja;
+                } else if (event && event.data && event.data.overlayNinja) {
+                    payload = event.data.overlayNinja;
+                }
+
+                if (payload) {
+                    processIncomingData(payload);
+                }
+            });
+
+            window.addEventListener("beforeunload", function () {
+                sockets.forEach(function (connection) {
+                    if (connection.timer) {
+                        clearTimeout(connection.timer);
+                    }
+                    connection.closed = true;
+                    if (connection.socket) {
+                        try {
+                            connection.socket.onclose = null;
+                            connection.socket.close();
+                        } catch (e) { }
+                    }
+                });
+            });
+
+            render();
+            connectServerModes();
+            connectIframe()
+        })()
+    </script>
+</body>
+
+</html>
