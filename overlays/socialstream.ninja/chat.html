@@ -369,12 +369,14 @@
 				if (!element) return height;
 
 				const computedStyle = window.getComputedStyle(element);
-				const parentComputedStyle = window.getComputedStyle(element?.parentElement);
+				const parentComputedStyle = element.parentElement ? window.getComputedStyle(element.parentElement) : null;
 
-				height += parseFloat(element?.scrollHeight);
-				height += parseFloat(element?.offsetHeight);
-				height += parseFloat(computedStyle?.gap);
-				height += parseFloat(parentComputedStyle?.gap);
+				const elementGap = parseFloat(computedStyle?.gap) || 0;
+				const parentElementGap = parentComputedStyle ? (parseFloat(parentComputedStyle?.gap) || 0) : 0;
+
+				height += element?.scrollHeight || 0;
+				height += parentElementGap;
+				height += elementGap;
 				
 				return height
 			}
@@ -447,8 +449,8 @@
 				chatContainer?.scrollTo({ top: chatContainer?.scrollHeight, behavior: 'smooth' });
 
 				requestAnimationFrame(() => {
-					messageElement.style.maxHeight = `${getTrueHeight(messageElement)}px`;
-					messageElement.style.animationDelay = `0s, ${MESSAGE_DURATION}ms`
+					messageElement.style?.setProperty('max-height', `${getTrueHeight(messageElement)}px`, 'important');
+					messageElement.style?.setProperty('animation-delay', `0s, ${MESSAGE_DURATION}ms`);
 				});
 	
 	            const messages = Array.from(chatContainer.children).filter(
