@@ -4,7 +4,7 @@
 	    <meta charset="UTF-8">
 	    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 	    <title>Chat Overlay - Social Stream Ninja</title>
-			<link rel="preconnect" href="https://fonts.googleapis.com">
+		<link rel="preconnect" href="https://fonts.googleapis.com">
 	    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 	    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,100..900;1,100..900&display=swap" type="text/css">
 	    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" type="text/css">
@@ -70,17 +70,19 @@
 	            --message-background-color: #f9fafb;
 	            --message-text-color: #030712;
 	
-	            flex: 0 0;
+	            flex: 0 0 auto;
+				max-height: 0;
 	            display: flex;
 	            flex-direction: column;
 	            flex-wrap: nowrap;
 	            align-items: flex-start;
+				overflow: hidden;
 	            font-family: var(--message-font-family);
 	            animation-name: fadeInUp, fadeOutUp;
 	            animation-duration: 240ms;
 	            animation-timing-function: linear, ease-out;
 	            animation-fill-mode: backwards, forwards;
-	            animation-delay: 0s, 30000ms;
+				transition: max-height 500ms;
 	        }
 	
 	        .chat.dark {
@@ -304,6 +306,7 @@
 	
 	        const chatContainer = document.querySelector('.main-container');
 	
+			const MESSAGE_DURATION = urlParams.has('messageduration') ? parseInt(urlParams.get('messageduration')) : 30000;
 	        const MAX_BADGES = urlParams.has('limitbadges') ? parseInt(urlParams.get('limitbadges')) : Infinity;
 	        const HIDE_COMMANDS = urlParams.has('hidecommands') ? true : false;
 	        const MAX_MESSAGES = urlParams.has('limit') ? parseInt(urlParams.get('limit')) : Infinity;
@@ -359,6 +362,22 @@
 	
 	            return element
 	        }
+
+			function getTrueHeight(element) {
+				let height = 0;
+
+				if (!element) return height;
+
+				const computedStyle = window.getComputedStyle(element);
+				const parentComputedStyle = window.getComputedStyle(element?.parentElement);
+
+				height += parseFloat(element?.scrollHeight);
+				height += parseFloat(element?.offsetHeight);
+				height += parseFloat(computedStyle?.gap);
+				height += parseFloat(parentComputedStyle?.gap);
+				
+				return height
+			}
 	
 	        function addMessageToOverlay(data) {
 	            if ((!data.chatname || !data.chatmessage) || (data.hasDonation || data.donation))
@@ -423,7 +442,14 @@
 	            } else
 	                chatContainer.appendChild(messageElement);
 	
-	            void messageElement.offsetWidth;
+	            void messageElement?.offsetWidth;
+
+				chatContainer?.scrollTo({ top: chatContainer?.scrollHeight, behavior: 'smooth' });
+
+				requestAnimationFrame(() => {
+					messageElement.style.maxHeight = `${getTrueHeight(messageElement)}px`;
+					messageElement.style.animationDelay = `0s, ${MESSAGE_DURATION}ms`
+				});
 	
 	            const messages = Array.from(chatContainer.children).filter(
 	                child => child.classList.contains('chat')
@@ -431,7 +457,7 @@
 	
 	            setTimeout(() => {
 	                chatContainer.removeChild(messageElement)
-	            }, 30240);
+	            }, parseInt(MESSAGE_DURATION + 250));
 	
 	            if (messages.length > MAX_MESSAGES) {
 	                const oldestMessage = reversed ? messages[messages.length - 1] : messages[0];
