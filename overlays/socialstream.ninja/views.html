@@ -7,8 +7,11 @@
     <title>Views Overlay - Social Stream Ninja</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,100..900;1,100..900&display=swap" type="text/css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" type="text/css">
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,100..900;1,100..900&display=swap"
+        type="text/css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"
+        type="text/css">
     <style type="text/css">
         @keyframes shimmer {
             60% {
@@ -200,368 +203,960 @@
         </div>
     </template>
     <script type="text/javascript">
-        (function () {
-            const container = document.getElementById('platform_container');
-            const urlParams = new URLSearchParams(window.location.search);
+        (() => {
+            'use strict';
+
+            // ==========================================
+            // DOM
+            // ==========================================
+
+            const container =
+                document.getElementById('platform_container');
+
+            const template =
+                document.getElementById('platform-template');
+
+            const params =
+                new URLSearchParams(window.location.search);
+
+            // ==========================================
+            // CONFIG
+            // ==========================================
+
+            const CONFIG = {
+                session:
+                    params.get('session') || '',
+
+                password:
+                    params.get('password') || 'false',
+
+                lanOnly:
+                    params.has('lanonly'),
+
+                hasServerMode:
+                    params.has('server') ||
+                    params.has('server2') ||
+                    params.has('server3')
+            };
+
+            // ==========================================
+            // STATE
+            // ==========================================
+
             const state = new Map();
+            const elements = new Map();
             const sockets = [];
-            const hasServerMode = urlParams.has('server') || urlParams.has('server2') || urlParams.has('server3');
 
-            var viewerCounts = Object.create(null);
-            var sequenceCounter = 0;
-            var iframe = null;
+            let iframe = null;
+            let sequence = 0;
 
-            function formatNumberShort(number, precision = 1) {
-                number = Number(number);
+            let viewerCounts =
+                Object.create(null);
 
-                if (number < 1000) return number;
+            // ==========================================
+            // CONSTANTS
+            // ==========================================
 
-                const suffixes = ['K', 'M', 'B', 'T'];
-                const suffixIndex = Math.floor(Math.log10(number) / 3) - 1;
+            const PLATFORM_ORDER = {
+                total: 0,
+                twitch: 1,
+                youtube: 2,
+                kick: 3,
+                facebook: 4,
+                tiktok: 5,
+                trovo: 6
+            };
 
-                let shortValue = number / Math.pow(1000, suffixIndex + 1);
+            // ==========================================
+            // HELPERS
+            // ==========================================
 
-                return `${parseFloat(shortValue.toFixed(precision))}${suffixes[suffixIndex]}`
-            }
+            const wait = ms =>
+                new Promise(resolve =>
+                    setTimeout(resolve, ms)
+                );
 
             function parseNumber(value) {
-                if (typeof value === 'number' && Number.isFinite(value))
-                    return value;
 
-                if (typeof value === 'string') {
-                    var cleaned = value.replace(/[^0-9.-]/g, '');
-                    if (!cleaned) return null;
-                    var parsed = parseFloat(cleaned);
-                    return Number.isFinite(parsed) ? parsed : null;
+                if (
+                    typeof value === 'number' &&
+                    Number.isFinite(value)
+                ) {
+                    return value;
+                }
+
+                if (
+                    typeof value === 'string'
+                ) {
+
+                    const cleaned =
+                        value.replace(
+                            /[^0-9.-]/g,
+                            ''
+                        );
+
+                    if (!cleaned) {
+                        return null;
+                    }
+
+                    const parsed =
+                        parseFloat(cleaned);
+
+                    return Number.isFinite(parsed)
+                        ? parsed
+                        : null;
                 }
 
                 return null;
             }
 
-            function normalizeEventName(eventName) {
-                if (typeof eventName !== 'string') return '';
+            function formatNumberShort(
+                number,
+                precision = 1
+            ) {
+
+                number = Number(number);
+
+                if (number < 1000) {
+                    return number.toString();
+                }
+
+                const suffixes =
+                    ['K', 'M', 'B', 'T'];
+
+                const suffixIndex =
+                    Math.floor(
+                        Math.log10(number) / 3
+                    ) - 1;
+
+                const shortValue =
+                    number /
+                    Math.pow(
+                        1000,
+                        suffixIndex + 1
+                    );
+
+                return `${parseFloat(
+                    shortValue.toFixed(
+                        precision
+                    )
+                )}${suffixes[suffixIndex]}`;
+            }
+
+            function normalizeEventName(
+                eventName
+            ) {
+
+                if (
+                    typeof eventName !==
+                    'string'
+                ) {
+                    return '';
+                }
+
                 return eventName
                     .toLowerCase()
-                    .replace(/[^a-z0-9]+/g, '_')
-                    .replace(/_+/g, '_')
-                    .replace(/^_+|_+$/g, '');
-            }
-
-            function getEventCategory(normalizedEventName) {
-                if (normalizedEventName === 'auction_update') return 'auction';
-                if (normalizedEventName === 'commerce_update') return 'commerce';
-                if (normalizedEventName === 'viewer_update' || normalizedEventName === 'viewer_updates') return 'viewers';
-                return 'othermeta';
-            }
-
-            function eventIsEnabled(normalizedEventName) {
-                var category = getEventCategory(normalizedEventName);
-                return category !== 'othermeta'
+                    .replace(
+                        /[^a-z0-9]+/g,
+                        '_'
+                    )
+                    .replace(
+                        /_+/g,
+                        '_'
+                    )
+                    .replace(
+                        /^_+|_+$/g,
+                        ''
+                    );
             }
 
             function isPlainObject(value) {
-                return Object.prototype.toString.call(value) === '[object Object]';
+
+                return (
+                    Object.prototype.toString.call(
+                        value
+                    ) === '[object Object]'
+                );
             }
 
-            function syncViewerEntries(replaceSnapshot) {
-                if (replaceSnapshot) {
-                    Array.from(state.keys()).forEach(function (key) {
-                        if (key.indexOf('viewers.platform.') === 0) {
-                            var platform = key.replace('viewers.platform.', '');
-                            if (!Object.prototype.hasOwnProperty.call(viewerCounts, platform)) {
-                                state.delete(key);
-                            }
-                        }
-                    });
+            // ==========================================
+            // ENTRY
+            // ==========================================
+
+            function setEntry({
+                id,
+                platform,
+                value,
+                label
+            }) {
+
+                if (!id) {
+                    return;
                 }
 
-                var platforms = Object.keys(viewerCounts).sort();
-                var total = 0;
-                for (var i = 0; i < platforms.length; i++) {
-                    var platform = platforms[i];
-                    var count = parseNumber(viewerCounts[platform]);
-                    if (count === null) continue;
-                    total += count;
-                    setEntry(
-                        `viewers.platform.${platform}`,
-                        platform,
-                        `${platform.toUpperCase()} Viewers`,
-                        count,
-                        `viewers.${platform}`,
-                        'viewers',
-                        210 + i
-                    );
-                }
+                const existing =
+                    state.get(id);
 
-                if (platforms.length) {
-                    setEntry('viewers.total', 'all', 'Total Viewers', total, 'viewers.total', 'viewers', 205);
-                } else {
-                    state.delete('viewers.total');
-                }
-            }
-
-            function setEntry(id, platform, label, value, fieldKey, category, order) {
-                if (!id) return;
-
-                var existing = state.get(id);
                 state.set(id, {
                     id,
                     platform,
-                    label,
                     value,
-                    category: category || 'othermeta',
-                    order: Number.isFinite(order) ? order : 500,
-                    sequence: existing ? existing.sequence : ++sequenceCounter
+                    label,
+                    order:
+                        PLATFORM_ORDER[
+                        platform
+                        ] ?? 999,
+                    sequence:
+                        existing?.sequence ??
+                        ++sequence
                 });
             }
+
+            // ==========================================
+            // VIEWERS
+            // ==========================================
+
+            function syncViewerEntries() {
+
+                let total = 0;
+
+                Object.entries(
+                    viewerCounts
+                ).forEach(
+                    ([platform, count]) => {
+
+                        const numeric =
+                            parseNumber(count);
+
+                        if (
+                            numeric === null
+                        ) {
+                            return;
+                        }
+
+                        total += numeric;
+
+                        setEntry({
+                            id:
+                                `viewer-${platform}`,
+
+                            platform,
+
+                            label:
+                                `${platform.toUpperCase()} Viewers`,
+
+                            value: numeric
+                        });
+                    }
+                );
+
+                setEntry({
+                    id: 'viewer-total',
+                    platform: 'total',
+                    label: 'Total Viewers',
+                    value: total
+                });
+
+                render();
+            }
+
+            // ==========================================
+            // ANIMATION
+            // ==========================================
+
+            async function animateUpdate(
+                element
+            ) {
+
+                element.classList.remove(
+                    'animate-pop'
+                );
+
+                void element.offsetWidth;
+
+                element.classList.add(
+                    'animate-pop'
+                );
+
+                await wait(400);
+
+                element.classList.remove(
+                    'animate-pop'
+                );
+            }
+
+            // ==========================================
+            // CREATE ELEMENT
+            // ==========================================
+
+            function createPlatformElement(
+                entry
+            ) {
+
+                const fragment =
+                    template.content.cloneNode(
+                        true
+                    );
+
+                const base =
+                    fragment.querySelector(
+                        '.platform'
+                    );
+
+                const icon =
+                    fragment.querySelector(
+                        '.icon'
+                    );
+
+                const views =
+                    fragment.querySelector(
+                        '.views'
+                    );
+
+                base.dataset.platform =
+                    entry.platform;
+
+                base.classList.add(
+                    entry.platform
+                );
+
+                icon?.classList.add(
+                    entry.platform
+                );
+
+                views.dataset.value =
+                    entry.value;
+
+                views.textContent =
+                    formatNumberShort(
+                        entry.value
+                    );
+
+                container.appendChild(
+                    base
+                );
+
+                elements.set(
+                    entry.platform,
+                    {
+                        base,
+                        views
+                    }
+                );
+            }
+
+            // ==========================================
+            // UPDATE ELEMENT
+            // ==========================================
+
+            function updatePlatformElement(
+                entry
+            ) {
+
+                const element =
+                    elements.get(
+                        entry.platform
+                    );
+
+                if (!element) {
+                    createPlatformElement(
+                        entry
+                    );
+                    return;
+                }
+
+                const currentValue =
+                    Number(
+                        element.views.dataset
+                            .value
+                    );
+
+                if (
+                    currentValue ===
+                    entry.value
+                ) {
+                    return;
+                }
+
+                element.views.dataset.value =
+                    entry.value;
+
+                element.views.textContent =
+                    formatNumberShort(
+                        entry.value
+                    );
+
+                animateUpdate(
+                    element.views
+                );
+            }
+
+            // ==========================================
+            // RENDER
+            // ==========================================
 
             function render() {
-                var entries = Array.from(state.values()).sort(function (a, b) {
-                    if (a.order !== b.order) return a.order - b.order;
-                    return a.sequence - b.sequence;
-                });
 
-                for (var i = 0; i < entries.length; i++) {
-                    var entry = entries[i];
-                    var element = document.body.querySelector(`.platform[data-platform="${entry?.platform}"]`);
+                const entries =
+                    [...state.values()]
+                        .sort(
+                            (a, b) => {
 
-                    if (element) {
-                        let views = element?.querySelector('.views');
+                                if (
+                                    a.order !==
+                                    b.order
+                                ) {
+                                    return (
+                                        a.order -
+                                        b.order
+                                    );
+                                }
 
-                        if (views.getAttribute('data-value') !== entry?.value) {
-                            views.setAttribute('data-value', entry?.value);
-                            views.innerText = formatNumberShort(entry?.value);
-
-                            views.classList.remove('animate-pop');
-                            void views.offsetWidth;
-                            views.classList.add('animate-pop');
-
-                            setTimeout(() => {
-                                views.classList.remove('animate-pop')
-                            }, 400)
-                        }
-                        continue
-                    }
-
-                    var template = document?.getElementById('platform-template');
-                    var content = template?.content?.cloneNode(true);
-
-                    var base = content?.querySelector('.platform');
-                    var views = content?.querySelector('.views');
-                    var icon = content?.querySelector('.icon');
-
-                    base?.setAttribute('data-platform', entry?.platform);
-                    base?.classList.add(entry?.platform);
-                    icon?.classList.add(entry?.platform);
-                    views.setAttribute('data-value', entry?.value);
-                    views.innerText = formatNumberShort(entry?.value);
-
-                    container.appendChild(base)
-                }
-            }
-
-            function connectIframe() {
-                var sessionId = urlParams.get('session');
-                if (!sessionId || hasServerMode) return;
-
-                var password = encodeURIComponent(urlParams.get('password') || 'false');
-                var lanonly = urlParams.has('lanonly') ? '&lanonly' : '';
-                iframe = document.createElement('iframe');
-                iframe.src = `https://vdo.socialstream.ninja/?ln&salt=vdo.ninja&notmobile&password=${password + lanonly}&solo&view=${encodeURIComponent(sessionId)}&novideo&noaudio&label=meta&cleanoutput&room=${encodeURIComponent(sessionId)}`;
-                iframe.style.cssText = 'width:0;height:0;position:fixed;left:-100px;top:-100px';
-                document.body.appendChild(iframe);
-            }
-
-            function connectSocket(serverURL, roomId, outChannel, inChannel) {
-                if (!serverURL || !roomId) return;
-
-                var connection = {
-                    socket: null,
-                    attempts: 1,
-                    timer: null,
-                    closed: false
-                };
-                sockets.push(connection);
-
-                function scheduleReconnect() {
-                    if (connection.closed) return;
-                    var delay = Math.min(12000, 200 * connection.attempts);
-                    if (connection.timer) {
-                        clearTimeout(connection.timer);
-                    }
-                    connection.timer = setTimeout(function () {
-                        connection.attempts += 1;
-                        connectNow();
-                    }, delay);
-                }
-
-                function connectNow() {
-                    if (connection.closed) return;
-                    try {
-                        connection.socket = new WebSocket(serverURL);
-                    } catch (e) {
-                        scheduleReconnect();
-                        return;
-                    }
-
-                    connection.socket.onopen = function () {
-                        connection.attempts = 1;
-                        try {
-                            connection.socket.send(JSON.stringify({
-                                join: roomId,
-                                out: outChannel,
-                                in: inChannel
-                            }));
-                        } catch (e) { }
-                    };
-
-                    connection.socket.onmessage = function (event) {
-                        if (!event || !event.data) return;
-                        try {
-                            var parsed = JSON.parse(event.data);
-                            processIncomingData(parsed);
-                            if (parsed && parsed.get) {
-                                connection.socket.send(JSON.stringify({
-                                    callback: {
-                                        get: parsed.get,
-                                        result: true
-                                    }
-                                }));
+                                return (
+                                    a.sequence -
+                                    b.sequence
+                                );
                             }
-                        } catch (e) { }
-                    };
+                        );
 
-                    connection.socket.onerror = function () {
-                        try {
-                            connection.socket.close();
-                        } catch (e) { }
-                    };
-
-                    connection.socket.onclose = function () {
-                        scheduleReconnect();
-                    };
-                }
-
-                connectNow()
+                entries.forEach(
+                    updatePlatformElement
+                );
             }
 
-            function connectServerModes() {
-                var roomId = (urlParams.get('session') || '').split(',')[0];
-                if (!roomId) return;
-
-                if (urlParams.has('server')) {
-                    var apiServerURL = urlParams.get('server') || (urlParams.has('localserver') ? 'ws://127.0.0.1:3000' : 'wss://io.socialstream.ninja/api');
-                    connectSocket(apiServerURL, roomId, 2, 1);
-                }
-
-                if (urlParams.has('server2') || urlParams.has('server3')) {
-                    var extensionServerURL = urlParams.has('server2')
-                        ? (urlParams.get('server2') || 'wss://io.socialstream.ninja/extension')
-                        : (urlParams.get('server3') || 'wss://io.socialstream.ninja/extension');
-                    connectSocket(extensionServerURL, roomId, 3, 4);
-                }
-            }
-
-            function processIncomingData(raw) {
-                if (!raw || typeof raw !== 'object') return;
-                if (raw.dataReceived && raw.dataReceived.overlayNinja) {
-                    processPayload(raw.dataReceived.overlayNinja);
-                    return;
-                }
-                if (raw.overlayNinja) {
-                    processPayload(raw.overlayNinja);
-                    return;
-                }
-                processPayload(raw);
-            }
+            // ==========================================
+            // PAYLOAD
+            // ==========================================
 
             function processPayload(data) {
-                if (!data || typeof data !== 'object') return;
-                if (data.content && typeof data.content === 'object') {
+
+                if (
+                    !data ||
+                    typeof data !==
+                    'object'
+                ) {
+                    return;
+                }
+
+                if (
+                    data.content &&
+                    typeof data.content ===
+                    'object'
+                ) {
+
                     data = data.content;
                 }
 
-                var normalizedEventName = normalizeEventName(data.event || data.type || '');
-                if (!normalizedEventName || typeof data.meta === 'undefined' || data.meta === null) return;
-                if (!eventIsEnabled(normalizedEventName)) return;
+                const eventName =
+                    normalizeEventName(
+                        data.event ||
+                        data.type ||
+                        ''
+                    );
 
-                var meta = data.meta;
-                var category = getEventCategory(normalizedEventName);
-
-                if (normalizedEventName === 'viewer_update') {
-                    var platformName = (data.type || data.platform || '').toString().toLowerCase();
-                    var singleCount = parseNumber(meta);
-
-                    if (platformName && singleCount !== null) {
-                        viewerCounts[platformName] = singleCount;
-                        syncViewerEntries(false)
-                    }
-                } else if (normalizedEventName === 'viewer_updates' && isPlainObject(meta)) {
-                    viewerCounts = Object.create(null);
-                    Object.keys(meta).forEach(function (platform) {
-                        var numeric = parseNumber(meta[platform]);
-                        if (numeric !== null) {
-                            viewerCounts[platform] = numeric;
-                        }
-                    });
-
-                    syncViewerEntries(true)
-                } else if (category === 'othermeta') {
-                    updateGenericMetaEntries(normalizedEventName, meta)
+                if (!eventName) {
+                    return;
                 }
 
-                render()
+                const meta =
+                    data.meta;
+
+                if (
+                    meta === undefined ||
+                    meta === null
+                ) {
+                    return;
+                }
+
+                // ==========================================
+                // SINGLE PLATFORM
+                // ==========================================
+
+                if (
+                    eventName ===
+                    'viewer_update'
+                ) {
+
+                    const platform =
+                        (
+                            data.platform ||
+                            data.type ||
+                            ''
+                        )
+                            .toString()
+                            .toLowerCase();
+
+                    const count =
+                        parseNumber(meta);
+
+                    if (
+                        !platform ||
+                        count === null
+                    ) {
+                        return;
+                    }
+
+                    viewerCounts[
+                        platform
+                    ] = count;
+
+                    syncViewerEntries();
+
+                    return;
+                }
+
+                // ==========================================
+                // MULTIPLE PLATFORMS
+                // ==========================================
+
+                if (
+                    eventName ===
+                    'viewer_updates'
+                ) {
+
+                    if (
+                        !isPlainObject(meta)
+                    ) {
+                        return;
+                    }
+
+                    viewerCounts =
+                        Object.create(null);
+
+                    Object.entries(meta)
+                        .forEach(
+                            ([platform, value]) => {
+
+                                const count =
+                                    parseNumber(
+                                        value
+                                    );
+
+                                if (
+                                    count !==
+                                    null
+                                ) {
+
+                                    viewerCounts[
+                                        platform.toLowerCase()
+                                    ] = count;
+                                }
+                            }
+                        );
+
+                    syncViewerEntries();
+                }
             }
 
-            function processIncomingData(raw) {
-                if (!raw || typeof raw !== 'object') return;
-                if (raw.dataReceived && raw.dataReceived.overlayNinja) {
-                    processPayload(raw.dataReceived.overlayNinja);
+            // ==========================================
+            // INCOMING DATA
+            // ==========================================
+
+            function processIncomingData(
+                raw
+            ) {
+
+                if (
+                    !raw ||
+                    typeof raw !==
+                    'object'
+                ) {
                     return;
                 }
-                if (raw.overlayNinja) {
-                    processPayload(raw.overlayNinja);
+
+                if (
+                    raw.dataReceived
+                        ?.overlayNinja
+                ) {
+
+                    processPayload(
+                        raw.dataReceived
+                            .overlayNinja
+                    );
+
                     return;
                 }
+
+                if (
+                    raw.overlayNinja
+                ) {
+
+                    processPayload(
+                        raw.overlayNinja
+                    );
+
+                    return;
+                }
+
                 processPayload(raw);
             }
 
-            window.addEventListener('message', function (event) {
-                var payload = null;
+            // ==========================================
+            // IFRAME
+            // ==========================================
 
-                if (event && event.data && event.data.dataReceived && event.data.dataReceived.overlayNinja) {
-                    if (iframe && event.source !== iframe.contentWindow) {
+            function connectIframe() {
+
+                if (
+                    !CONFIG.session ||
+                    CONFIG.hasServerMode
+                ) {
+                    return;
+                }
+
+                const password =
+                    encodeURIComponent(
+                        CONFIG.password
+                    );
+
+                const lanOnly =
+                    CONFIG.lanOnly
+                        ? '&lanonly'
+                        : '';
+
+                iframe =
+                    document.createElement(
+                        'iframe'
+                    );
+
+                iframe.src =
+                    `https://vdo.socialstream.ninja/?ln&salt=vdo.ninja&notmobile&password=${password + lanOnly}&solo&view=${encodeURIComponent(CONFIG.session)}&novideo&noaudio&label=meta&cleanoutput&room=${encodeURIComponent(CONFIG.session)}`;
+
+                iframe.style.cssText = `
+            width:0;
+            height:0;
+            position:fixed;
+            left:-100px;
+            top:-100px;
+            border:0;
+            pointer-events:none;
+        `;
+
+                document.body.appendChild(
+                    iframe
+                );
+            }
+
+            // ==========================================
+            // SOCKET
+            // ==========================================
+
+            function connectSocket({
+                url,
+                roomId,
+                out,
+                inChannel
+            }) {
+
+                if (
+                    !url ||
+                    !roomId
+                ) {
+                    return;
+                }
+
+                const connection = {
+                    socket: null,
+                    timer: null,
+                    attempts: 1,
+                    closed: false
+                };
+
+                sockets.push(connection);
+
+                function reconnect() {
+
+                    if (
+                        connection.closed
+                    ) {
                         return;
                     }
-                    payload = event.data.dataReceived.overlayNinja;
-                } else if (event && event.data && event.data.overlayNinja) {
-                    payload = event.data.overlayNinja;
+
+                    clearTimeout(
+                        connection.timer
+                    );
+
+                    const delay =
+                        Math.min(
+                            12000,
+                            250 *
+                            connection.attempts
+                        );
+
+                    connection.timer =
+                        setTimeout(
+                            connect,
+                            delay
+                        );
+
+                    connection.attempts++;
                 }
 
-                if (payload) {
-                    processIncomingData(payload);
-                }
-            });
+                function connect() {
 
-            window.addEventListener('beforeunload', function () {
-                sockets.forEach(function (connection) {
-                    if (connection.timer) {
-                        clearTimeout(connection.timer);
+                    if (
+                        connection.closed
+                    ) {
+                        return;
                     }
-                    connection.closed = true;
-                    if (connection.socket) {
-                        try {
-                            connection.socket.onclose = null;
-                            connection.socket.close();
-                        } catch (e) { }
+
+                    try {
+
+                        connection.socket =
+                            new WebSocket(
+                                url
+                            );
+
+                    } catch {
+
+                        reconnect();
+                        return;
                     }
-                });
-            });
+
+                    connection.socket.onopen =
+                        () => {
+
+                            connection.attempts = 1;
+
+                            connection.socket.send(
+                                JSON.stringify({
+                                    join:
+                                        roomId,
+                                    out,
+                                    in:
+                                        inChannel
+                                })
+                            );
+                        };
+
+                    connection.socket.onmessage =
+                        event => {
+
+                            if (
+                                !event?.data
+                            ) {
+                                return;
+                            }
+
+                            try {
+
+                                const parsed =
+                                    JSON.parse(
+                                        event.data
+                                    );
+
+                                processIncomingData(
+                                    parsed
+                                );
+
+                                if (
+                                    parsed?.get
+                                ) {
+
+                                    connection.socket.send(
+                                        JSON.stringify({
+                                            callback: {
+                                                get:
+                                                    parsed.get,
+                                                result: true
+                                            }
+                                        })
+                                    );
+                                }
+
+                            } catch { }
+                        };
+
+                    connection.socket.onerror =
+                        () => {
+
+                            try {
+
+                                connection.socket.close();
+
+                            } catch { }
+                        };
+
+                    connection.socket.onclose =
+                        reconnect;
+                }
+
+                connect();
+            }
+
+            // ==========================================
+            // SERVER MODES
+            // ==========================================
+
+            function connectServerModes() {
+
+                const roomId =
+                    CONFIG.session
+                        .split(',')[0];
+
+                if (!roomId) {
+                    return;
+                }
+
+                // API SERVER
+
+                if (
+                    params.has('server')
+                ) {
+
+                    const url =
+                        params.get(
+                            'server'
+                        ) ||
+                        (
+                            params.has(
+                                'localserver'
+                            )
+                                ? 'ws://127.0.0.1:3000'
+                                : 'wss://io.socialstream.ninja/api'
+                        );
+
+                    connectSocket({
+                        url,
+                        roomId,
+                        out: 2,
+                        inChannel: 1
+                    });
+                }
+
+                // EXTENSION SERVER
+
+                if (
+                    params.has(
+                        'server2'
+                    ) ||
+                    params.has(
+                        'server3'
+                    )
+                ) {
+
+                    const url =
+                        params.has(
+                            'server2'
+                        )
+                            ? (
+                                params.get(
+                                    'server2'
+                                ) ||
+                                'wss://io.socialstream.ninja/extension'
+                            )
+                            : (
+                                params.get(
+                                    'server3'
+                                ) ||
+                                'wss://io.socialstream.ninja/extension'
+                            );
+
+                    connectSocket({
+                        url,
+                        roomId,
+                        out: 3,
+                        inChannel: 4
+                    });
+                }
+            }
+
+            // ==========================================
+            // MESSAGE LISTENER
+            // ==========================================
+
+            window.addEventListener(
+                'message',
+                event => {
+
+                    let payload =
+                        null;
+
+                    if (
+                        event?.data
+                            ?.dataReceived
+                            ?.overlayNinja
+                    ) {
+
+                        if (
+                            iframe &&
+                            event.source !==
+                            iframe.contentWindow
+                        ) {
+                            return;
+                        }
+
+                        payload =
+                            event.data
+                                .dataReceived
+                                .overlayNinja;
+                    }
+
+                    else if (
+                        event?.data
+                            ?.overlayNinja
+                    ) {
+
+                        payload =
+                            event.data
+                                .overlayNinja;
+                    }
+
+                    if (payload) {
+                        processIncomingData(
+                            payload
+                        );
+                    }
+                }
+            );
+
+            // ==========================================
+            // CLEANUP
+            // ==========================================
+
+            window.addEventListener(
+                'beforeunload',
+                () => {
+
+                    sockets.forEach(
+                        connection => {
+
+                            connection.closed =
+                                true;
+
+                            clearTimeout(
+                                connection.timer
+                            );
+
+                            if (
+                                connection.socket
+                            ) {
+
+                                try {
+
+                                    connection.socket.onclose =
+                                        null;
+
+                                    connection.socket.close();
+
+                                } catch { }
+                            }
+                        }
+                    );
+                }
+            );
+
+            // ==========================================
+            // INIT
+            // ==========================================
 
             render();
+
             connectServerModes();
-            connectIframe()
-        })()
+
+            connectIframe();
+
+        })();
     </script>
 </body>
 
