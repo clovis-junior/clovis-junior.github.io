@@ -1,0 +1,1142 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Featured Chat Overlay - Social Stream Ninja</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,100..900;1,100..900&display=swap"
+        type="text/css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"
+        type="text/css">
+    <style type="text/css">
+        @charset 'UTF-8';
+
+        *,
+        *:after,
+        *:before {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box
+        }
+
+        * {
+            outline: 0;
+            border: none;
+            font-family: inherit;
+            font-size: 100%;
+            background: transparent;
+            vertical-align: baseline
+        }
+
+        :root {
+            --background-color: #f9fafb;
+            --badge-size: 2rem;
+            --emote-size: 2rem;
+            --message-font-family: 'Noto Sans';
+            --message-font-size: 2rem;
+        }
+
+        body {
+            overflow: hidden;
+            text-rendering: optimizeLegibility;
+        }
+
+        .main-container {
+            max-width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-wrap: nowrap;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 1rem;
+            user-select: none;
+        }
+
+        .source {
+            z-index: 3;
+            width: var(--badge-size);
+            height: var(--badge-size);
+            display: block;
+            object-fit: cover;
+            background-color: var(--color);
+            mask-repeat: no-repeat;
+            mask-position: center;
+            mask-size: var(--badge-size);
+            -webkit-mask-repeat: no-repeat;
+            -webkit-mask-position: center;
+            -webkit-mask-size: var(--badge-size);
+        }
+
+        .source.twitch {
+            /* background-color: #6441a5; */
+            mask-image: url('https://i.imgur.com/DnG97p5.png');
+            -webkit-mask-image: url('https://i.imgur.com/DnG97p5.png');
+        }
+
+        .source.facebook {
+            /* background-color: #005FED; */
+            mask-image: url('https://i.imgur.com/t8pQUvH.png');
+            -webkit-mask-image: url('https://i.imgur.com/t8pQUvH.png');
+        }
+
+        .source.youtube,
+        .source.youtubeshorts {
+            /* background-color: #f80231; */
+            mask-image: url('https://i.imgur.com/PCyzV61.png');
+            -webkit-mask-image: url('https://i.imgur.com/PCyzV61.png');
+        }
+
+        .source.kick {
+            /* background-color: #00e701; */
+            mask-image: url('https://i.imgur.com/GONwTVy.png');
+            -webkit-mask-image: url('https://i.imgur.com/GONwTVy.png');
+        }
+
+        .source.tiktok {
+            /* background-color: #2af0ea; */
+            mask-image: url('https://i.imgur.com/paZ8nLv.png');
+            -webkit-mask-image: url('https://i.imgur.com/paZ8nLv.png');
+        }
+
+        .message {
+            display: flex;
+            flex-wrap: nowrap;
+            flex-direction: column;
+            align-items: flex-start;
+            padding: 1rem;
+            font-family: var(--message-font-family);
+        }
+
+        .message-header,
+        .message-content {
+            flex: 1 0 auto;
+            min-width: 25%;
+            max-width: 100%;
+            display: flex;
+            flex-wrap: nowrap;
+            flex-direction: row;
+            align-items: center;
+            border-radius: 100px;
+            line-height: 150%;
+            font-size: var(--message-font-size);
+            color: var(--color);
+        }
+
+        .message-header {
+            z-index: 2;
+            gap: 1rem;
+            padding: 10px 20px 10px 10px;
+            font-weight: 700;
+            position: relative;
+        }
+
+        .message-header .author-avatar {
+            width: 5rem;
+            height: 5rem;
+            display: block;
+            overflow: hidden;
+            border-radius: 100px;
+        }
+
+        .message-header .author-avatar>img {
+            width: 100%;
+            height: 100%;
+            -o-object-fit: cover;
+            object-fit: cover;
+        }
+
+        .message-header .author-name {
+            max-width: 33rem;
+            display: block;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
+
+        .message-header .message-tip {
+            font-weight: 800;
+        }
+
+        .message-content {
+            z-index: 1;
+            margin-top: -5px;
+            margin-left: 3rem;
+            padding: 1rem 2rem;
+            border-radius: 0 50px 50px;
+            background-color: var(--background-color);
+            font-weight: 500;
+        }
+
+        .message-content img {
+            width: var(--emote-size);
+            height: auto;
+            display: inline-block;
+            -o-object-fit: cover;
+            object-fit: cover;
+            margin: 0 5px;
+        }
+
+        .message-text {
+            max-height: 9rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            -webkit-mask-image: linear-gradient(0deg, transparent 0%, white 25%, white 100%, transparent 100%);
+            mask-image: linear-gradient(0deg, transparent 0%, white 25%, white 100%, transparent 100%);
+        }
+
+        .message.font-dark {
+            --color: #030712;
+        }
+
+        .message.font-light {
+            --color: #f9fafb;
+        }
+    </style>
+</head>
+
+<body>
+    <main id="output" class="main-container"></main>
+    <template id="message-template">
+        <article class="message font-light">
+            <header class="message-header">
+                <figure class="author-avatar">
+                    <img src="./sources/images/unknown.png" alt />
+                </figure>
+                <span class="source"></span>
+                <span class="author-name"></span>
+                <aside class="message-tip"></aside>
+            </header>
+            <div class="message-content">
+                <p class="message-text"></p>
+            </div>
+        </article>
+    </template>
+    <script type="text/javascript" defer>
+        (() => {
+            'use strict';
+
+            // ==========================================
+            // CONFIG
+            // ==========================================
+
+            const params =
+                new URLSearchParams(
+                    window.location.search
+                );
+
+            const CONFIG = {
+                roomID:
+                    params.get('session') || '',
+
+                password:
+                    params.get('password') || 'false',
+
+                stacking:
+                    params.has('stack'),
+
+                activeLinks:
+                    params.has('activelinks'),
+
+                stripLinks:
+                    params.has('striplinks'),
+
+                shortenLinks:
+                    params.has('shortlinks'),
+
+                showTime:
+                    Number(
+                        params.get('showtime')
+                    ) || 30000,
+
+                maxMessages:
+                    Number(
+                        params.get('limit')
+                    ) || 20,
+
+                pseudodock:
+                    params.has('dock')
+            };
+
+            // ==========================================
+            // DOM
+            // ==========================================
+
+            const DOM = {
+                output:
+                    document.getElementById(
+                        'output'
+                    ),
+
+                template:
+                    document.getElementById(
+                        'message-template'
+                    )
+            };
+
+            // ==========================================
+            // STATE
+            // ==========================================
+
+            const activeMessages =
+                new Map();
+
+            const removeTimers =
+                new Map();
+
+            // ==========================================
+            // CONSTANTS
+            // ==========================================
+
+            const PLATFORM_COLORS = {
+                youtube: '#ff0000',
+                youtubeshorts: '#ff0000',
+                twitch: '#9146ff',
+                kick: '#53fc18',
+                facebook: '#1877f2',
+                tiktok: '#000000'
+            };
+
+            const URL_REGEX =
+                /((https?:\/\/|www\.)[^\s]+)/gi;
+
+            // ==========================================
+            // HELPERS
+            // ==========================================
+
+            const wait = ms =>
+                new Promise(resolve =>
+                    setTimeout(resolve, ms)
+                );
+
+            const escapeHTML = text =>
+                (text || '')
+                    .toString()
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
+
+            // ==========================================
+            // COLOR HELPERS
+            // ==========================================
+
+            function getContrastClass(
+                color
+            ) {
+
+                if (
+                    !color ||
+                    color.startsWith('hsl')
+                ) {
+                    return 'font-light';
+                }
+
+                let hex =
+                    color.replace('#', '');
+
+                if (hex.length === 3) {
+
+                    hex = hex
+                        .split('')
+                        .map(char => char + char)
+                        .join('');
+                }
+
+                const r =
+                    parseInt(
+                        hex.substring(0, 2),
+                        16
+                    );
+
+                const g =
+                    parseInt(
+                        hex.substring(2, 4),
+                        16
+                    );
+
+                const b =
+                    parseInt(
+                        hex.substring(4, 6),
+                        16
+                    );
+
+                const brightness =
+                    (
+                        (r * 299) +
+                        (g * 587) +
+                        (b * 114)
+                    ) / 1000;
+
+                return brightness > 155
+                    ? 'font-dark'
+                    : 'font-light';
+            }
+
+            function hexToRgb(hex) {
+
+                let normalized =
+                    hex.replace('#', '');
+
+                if (
+                    normalized.length === 3
+                ) {
+
+                    normalized =
+                        normalized
+                            .split('')
+                            .map(
+                                char =>
+                                    char + char
+                            )
+                            .join('');
+                }
+
+                const bigint =
+                    parseInt(
+                        normalized,
+                        16
+                    );
+
+                return {
+                    r:
+                        (bigint >> 16) & 255,
+
+                    g:
+                        (bigint >> 8) & 255,
+
+                    b:
+                        bigint & 255
+                };
+            }
+
+            function rgbToHex(
+                r,
+                g,
+                b
+            ) {
+
+                return (
+                    '#' +
+                    [r, g, b]
+                        .map(value =>
+                            Math.max(
+                                0,
+                                Math.min(
+                                    255,
+                                    value
+                                )
+                            )
+                                .toString(16)
+                                .padStart(2, '0')
+                        )
+                        .join('')
+                );
+            }
+
+            function shadeColor(
+                color,
+                percent
+            ) {
+
+                try {
+
+                    if (
+                        !color ||
+                        color.startsWith('hsl')
+                    ) {
+                        return color || '#000000';
+                    }
+
+                    const {
+                        r,
+                        g,
+                        b
+                    } = hexToRgb(color);
+
+                    const factor =
+                        1 + percent;
+
+                    return rgbToHex(
+                        Math.round(
+                            r * factor
+                        ),
+
+                        Math.round(
+                            g * factor
+                        ),
+
+                        Math.round(
+                            b * factor
+                        )
+                    );
+
+                } catch {
+
+                    return '#000000';
+                }
+            }
+
+            function stringToColor(
+                str = ''
+            ) {
+
+                let hash = 0;
+
+                for (
+                    let i = 0;
+                    i < str.length;
+                    i++
+                ) {
+
+                    hash =
+                        str.charCodeAt(i) +
+                        (
+                            (hash << 5) -
+                            hash
+                        );
+                }
+
+                const hue =
+                    Math.abs(hash % 360);
+
+                return `hsl(${hue}, 65%, 45%)`;
+            }
+
+            // ==========================================
+            // SVG AVATAR
+            // ==========================================
+
+            function createLetterAvatar({
+                name = '',
+                platform = ''
+            }) {
+
+                const letter =
+                    name
+                        .trim()
+                        .charAt(0)
+                        .toUpperCase() || '?';
+
+                const background =
+                    PLATFORM_COLORS[
+                    platform
+                    ] || stringToColor(name);
+
+                const svg = `
+            <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="128"
+                height="128"
+                viewBox="0 0 128 128"
+            >
+                <rect
+                    width="128"
+                    height="128"
+                    rx="64"
+                    fill="${background}"
+                />
+
+                <text
+                    x="50%"
+                    y="54%"
+                    dominant-baseline="middle"
+                    text-anchor="middle"
+                    font-family="Arial"
+                    font-size="56"
+                    font-weight="700"
+                    fill="white"
+                >
+                    ${letter}
+                </text>
+            </svg>
+        `;
+
+                return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+            }
+
+            // ==========================================
+            // URLS
+            // ==========================================
+
+            function processURLs(
+                element
+            ) {
+
+                if (!element) {
+                    return;
+                }
+
+                element.innerHTML =
+                    element.innerHTML.replace(
+                        URL_REGEX,
+                        url => {
+
+                            if (
+                                CONFIG.stripLinks
+                            ) {
+                                return '[Link]';
+                            }
+
+                            const href =
+                                url.startsWith(
+                                    'http'
+                                )
+                                    ? url
+                                    : `https://${url}`;
+
+                            const text =
+                                (
+                                    CONFIG.shortenLinks &&
+                                    url.length > 40
+                                )
+                                    ? `${url.slice(0, 40)}...`
+                                    : url;
+
+                            if (
+                                !CONFIG.activeLinks
+                            ) {
+                                return text;
+                            }
+
+                            return `
+                        <a
+                            href="${href}"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            ${text}
+                        </a>
+                    `;
+                        }
+                    );
+            }
+
+            // ==========================================
+            // REMOVE MESSAGE
+            // ==========================================
+
+            async function removeMessage(
+                element,
+                messageId
+            ) {
+
+                if (
+                    !element ||
+                    !element.parentNode
+                ) {
+                    return;
+                }
+
+                // evita remoção dupla
+                if (
+                    element.dataset.removing ===
+                    'true'
+                ) {
+                    return;
+                }
+
+                element.dataset.removing =
+                    'true';
+
+                // limpa timer
+                if (
+                    removeTimers.has(
+                        messageId
+                    )
+                ) {
+
+                    clearTimeout(
+                        removeTimers.get(
+                            messageId
+                        )
+                    );
+
+                    removeTimers.delete(
+                        messageId
+                    );
+                }
+
+                activeMessages.delete(
+                    messageId
+                );
+
+                element.classList.remove(
+                    'animate__fadeInUp'
+                );
+
+                element.classList.add(
+                    'animate__animated',
+                    'animate__fadeOutDown'
+                );
+
+                await wait(500);
+
+                element.remove();
+            }
+
+            // ==========================================
+            // CLEANUP STACK
+            // ==========================================
+
+            function cleanupStack() {
+
+                if (
+                    activeMessages.size <=
+                    CONFIG.maxMessages
+                ) {
+                    return;
+                }
+
+                const excess =
+                    activeMessages.size -
+                    CONFIG.maxMessages;
+
+                const entries =
+                    [
+                        ...activeMessages.entries()
+                    ];
+
+                for (
+                    let i = 0;
+                    i < excess;
+                    i++
+                ) {
+
+                    const [
+                        messageId,
+                        element
+                    ] = entries[i];
+
+                    removeMessage(
+                        element,
+                        messageId
+                    );
+                }
+            }
+
+            // ==========================================
+            // FEATURED TOGGLE
+            // ==========================================
+
+            async function handleFeaturedToggle(
+                messageId
+            ) {
+
+                if (
+                    !activeMessages.has(
+                        messageId
+                    )
+                ) {
+                    return false;
+                }
+
+                const element =
+                    activeMessages.get(
+                        messageId
+                    );
+
+                await removeMessage(
+                    element,
+                    messageId
+                );
+
+                return true;
+            }
+
+            // ==========================================
+            // RENDER
+            // ==========================================
+
+            async function renderMessage(
+                data
+            ) {
+
+                if (!data) {
+                    return;
+                }
+
+                const messageId =
+                    data.id ||
+                    data.mid ||
+                    `${Date.now()}-${Math.random()}`;
+
+                // ==========================================
+                // TOGGLE EXISTING
+                // ==========================================
+
+                if (
+                    await handleFeaturedToggle(
+                        messageId
+                    )
+                ) {
+                    return;
+                }
+
+                // ==========================================
+                // TEMPLATE
+                // ==========================================
+
+                const fragment =
+                    DOM.template.content.cloneNode(
+                        true
+                    );
+
+                const messageElement =
+                    fragment.querySelector(
+                        '.message'
+                    );
+
+                const avatar =
+                    fragment.querySelector(
+                        '.author-avatar img'
+                    );
+
+                const source =
+                    fragment.querySelector(
+                        '.source'
+                    );
+
+                const authorName =
+                    fragment.querySelector(
+                        '.author-name'
+                    );
+
+                const donation =
+                    fragment.querySelector(
+                        '.message-tip'
+                    );
+
+                const messageText =
+                    fragment.querySelector(
+                        '.message-text'
+                    );
+
+                const header =
+                    fragment.querySelector(
+                        '.message-header'
+                    );
+
+                const content =
+                    fragment.querySelector(
+                        '.message-content'
+                    );
+
+                // ==========================================
+                // DATA
+                // ==========================================
+
+                const chatname =
+                    escapeHTML(
+                        data.chatname || ''
+                    );
+
+                const chatmessage =
+                    data.chatmessage || '';
+
+                const platform =
+                    (
+                        data.type || ''
+                    ).toLowerCase();
+
+                const userColor =
+                    data.nameColor ||
+                    data.backgroundColor ||
+                    '#000000';
+
+                const donationValue =
+                    data.hasDonation ||
+                    data.donation ||
+                    data.membership ||
+                    '';
+
+                // ==========================================
+                // FONT CONTRAST
+                // ==========================================
+
+                messageElement.classList.add(
+                    getContrastClass(
+                        userColor
+                    )
+                );
+
+                // ==========================================
+                // COLORS
+                // ==========================================
+
+                header.style.backgroundColor =
+                    shadeColor(
+                        userColor,
+                        -0.18
+                    );
+
+                content.style.setProperty(
+                    '--background-color',
+                    shadeColor(
+                        userColor,
+                        0
+                    )
+                );
+
+                // ==========================================
+                // AVATAR
+                // ==========================================
+
+                const generatedAvatar =
+                    createLetterAvatar({
+                        name: chatname,
+                        platform
+                    });
+
+                avatar.loading =
+                    'lazy';
+
+                avatar.src =
+                    data.chatimg ||
+                    generatedAvatar;
+
+                avatar.onerror = () => {
+
+                    avatar.onerror = null;
+
+                    avatar.src =
+                        generatedAvatar;
+                };
+
+                // ==========================================
+                // PLATFORM
+                // ==========================================
+
+                if (platform) {
+
+                    source.classList.add(
+                        platform
+                    );
+
+                } else {
+
+                    source.remove();
+                }
+
+                // ==========================================
+                // AUTHOR
+                // ==========================================
+
+                authorName.textContent =
+                    chatname;
+
+                // ==========================================
+                // DONATION
+                // ==========================================
+
+                if (donationValue) {
+
+                    donation.textContent =
+                        donationValue;
+
+                } else {
+
+                    donation.remove();
+                }
+
+                // ==========================================
+                // MESSAGE
+                // ==========================================
+
+                messageText.innerHTML =
+                    chatmessage;
+
+                if (
+                    chatmessage &&
+                    (
+                        CONFIG.activeLinks ||
+                        CONFIG.stripLinks ||
+                        CONFIG.shortenLinks
+                    )
+                ) {
+
+                    processURLs(
+                        messageText
+                    );
+                }
+
+                // ==========================================
+                // ANIMATION
+                // ==========================================
+
+                messageElement.classList.add(
+                    'animate__animated',
+                    'animate__fadeInUp'
+                );
+
+                // ==========================================
+                // NON STACK MODE
+                // ==========================================
+
+                if (!CONFIG.stacking) {
+
+                    const entries =
+                        [
+                            ...activeMessages.entries()
+                        ];
+
+                    for (
+                        const [
+                            oldMessageId,
+                            oldElement
+                        ] of entries
+                    ) {
+
+                        await removeMessage(
+                            oldElement,
+                            oldMessageId
+                        );
+                    }
+                }
+
+                // ==========================================
+                // INSERT
+                // ==========================================
+
+                DOM.output.appendChild(
+                    messageElement
+                );
+
+                activeMessages.set(
+                    messageId,
+                    messageElement
+                );
+
+                cleanupStack();
+
+                // ==========================================
+                // AUTO REMOVE
+                // ==========================================
+
+                if (
+                    CONFIG.showTime > 0
+                ) {
+
+                    const timer =
+                        setTimeout(() => {
+
+                            if (
+                                activeMessages.has(
+                                    messageId
+                                )
+                            ) {
+
+                                removeMessage(
+                                    messageElement,
+                                    messageId
+                                );
+                            }
+
+                        }, CONFIG.showTime);
+
+                    removeTimers.set(
+                        messageId,
+                        timer
+                    );
+                }
+            }
+
+            // ==========================================
+            // PROCESS DATA
+            // ==========================================
+
+            function processData(
+                payload
+            ) {
+
+                const data =
+                    payload?.contents ||
+                    payload;
+
+                if (!data) {
+                    return;
+                }
+
+                renderMessage(data);
+            }
+
+            // ==========================================
+            // IFRAME BRIDGE
+            // ==========================================
+
+            function createRecvDataWindow() {
+
+                const iframe =
+                    document.createElement(
+                        'iframe'
+                    );
+
+                iframe.src =
+                    CONFIG.pseudodock
+                        ? `https://vdo.socialstream.ninja/?ln&salt=vdo.ninja&password=${CONFIG.password}&push&notmobile&label=dock&vd=0&ad=0&novideo&noaudio&autostart&cleanoutput&room=${CONFIG.roomID}`
+                        : `https://vdo.socialstream.ninja/?ln&password=${CONFIG.password}&notmobile&salt=vdo.ninja&label=overlay&exclude=${CONFIG.roomID}&scene&novideo&noaudio&cleanoutput&room=${CONFIG.roomID}`;
+
+                iframe.id =
+                    'frame1';
+
+                iframe.allow =
+                    'midi;geolocation;microphone;';
+
+                iframe.style.cssText = `
+            width:0;
+            height:0;
+            position:fixed;
+            left:-100px;
+            top:-100px;
+            border:0;
+            pointer-events:none;
+        `;
+
+                document.body.appendChild(
+                    iframe
+                );
+
+                window.addEventListener(
+                    'message',
+                    event => {
+
+                        if (
+                            event.source !==
+                            iframe.contentWindow
+                        ) {
+                            return;
+                        }
+
+                        const data =
+                            event?.data
+                                ?.dataReceived
+                                ?.overlayNinja;
+
+                        if (
+                            !data ||
+                            data.response
+                        ) {
+                            return;
+                        }
+
+                        processData({
+                            contents: data
+                        });
+                    }
+                );
+            }
+
+            // ==========================================
+            // INIT
+            // ==========================================
+
+            createRecvDataWindow();
+
+        })();
+    </script>
+</body>
+
+</html>
