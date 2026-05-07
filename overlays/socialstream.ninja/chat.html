@@ -299,229 +299,595 @@
 	    </template>
 	
 	    <script type="text/javascript" defer>
-	        var urlParams = new URLSearchParams(window.location.search);
-	        var roomID = urlParams.has('session') ? urlParams.get('session') : 'iWWnKL28tQ';
-	        var password = 'false';
-	        var featuredMode = false;
-	        var reversed = urlParams.has('reverse');
-	
-	        const chatContainer = document.querySelector('.main-container');
-	
-			const MESSAGE_DURATION = urlParams.has('messageduration') ? parseInt(urlParams.get('messageduration')) : 30000;
-	        const MAX_BADGES = urlParams.has('limitbadges') ? parseInt(urlParams.get('limitbadges')) : Infinity;
-	        const HIDE_COMMANDS = urlParams.has('hidecommands') ? true : false;
-	        const MAX_MESSAGES = urlParams.has('limit') ? parseInt(urlParams.get('limit')) : Infinity;
-	
-	        if (reversed)
-	            chatContainer.classList.add('reverse')
-	
-	        const messageTimestamps = new Map();
-	
-	        function formatMessageText(text) {
-	            text = text.toString();
-	            text = text?.replace(/(?<![\(\"\'\=])(https?\:\/\/[^\s\<\>\"\'\)]+)/gi, function (match) {
-	                const template = document.getElementById('link-template'),
-	                    link = template?.content?.cloneNode(true);
-	
-	                link.querySelector('.link').innerText = match?.toString();
-	
-	                return link?.firstElementChild?.outerHTML
-	            });
-	
-	            text = text?.replace(/\@([A-Za-z0-9\-\_]{4,})/gi, function (match) {
-	                const template = document.getElementById('mention-template'),
-	                    mention = template?.content?.cloneNode(true);
-	
-	                mention.querySelector('.mention').innerText = match?.toString();
-	
-	                return mention?.firstElementChild?.outerHTML
-	            });
-	
-	            return text
-	        }
-	
-	        function setBadge(src) {
-	            if (!src) return;
-	
-	            const image = new Image();
-	            const element = document.createElement('img');
-	
-	            image.onload = function (e) {
-	                element.classList.add('badge');
-	                element.src = e?.target?.src;
-	            };
-	
-	            image.src = src;
-	            return element
-	        }
-	
-	        function setSource(name) {
-	            if (!name) return;
-	
-	            const element = document.createElement('span');
-	            element.classList.add('source', name);
-	
-	            return element
-	        }
+	        (() => {
+    'use strict';
 
-			function getTrueHeight(element) {
-				let height = 0;
+    // ==========================================
+    // URL PARAMS / CONFIG
+    // ==========================================
 
-				if (!element) return height;
+    const urlParams = new URLSearchParams(window.location.search);
 
-				const computedStyle = window.getComputedStyle(element);
-				const parentComputedStyle = element.parentElement ? window.getComputedStyle(element.parentElement) : null;
+    const CONFIG = {
+        roomID: urlParams.get('session') || 'iWWnKL28tQ',
+        password: 'false',
 
-				const elementGap = parseFloat(computedStyle?.gap) || 0;
-				const parentElementGap = parentComputedStyle ? (parseFloat(parentComputedStyle?.gap) || 0) : 0;
+        featuredMode: false,
+        reversed: urlParams.has('reverse'),
 
-				height += element?.scrollHeight || 0;
-				height += parentElementGap;
-				height += elementGap;
-				
-				return height
-			}
-	
-	        function addMessageToOverlay(data) {
-	            if ((!data.chatname || !data.chatmessage) || (data.hasDonation || data.donation))
-	                return;
-	
-	            if (HIDE_COMMANDS && data?.chatmessage.startsWith('!'))
-	                return;
-	
-	            const template = document.getElementById('message-template');
-	            const content = template?.content?.cloneNode(true);
-	
-	            const messageElement = content.querySelector('.chat');
-	            const messageId = data?.mid || `msg-${Date.now()}`;
-	
-	            if (urlParams.has('darkMode'))
-	                messageElement.classList.add('dark');
-	
-	            messageElement.setAttribute('id', messageId);
-	            messageElement.setAttribute('data-platform', data.type);
-	            messageElement.setAttribute('data-from', data.chatname);
-	            messageTimestamps.set(messageId, Date.now());
-	
-	            if (data?.type)
-	                content.querySelector('.chat-user-badges').appendChild(setSource(data.type));
-	
-	            if (data.chatbadges) {
-	                data.chatbadges?.slice(0, MAX_BADGES)?.forEach(badge => {
-	                    if (typeof badge === 'object') {
-	                        if (badge.type === 'img' && badge.src)
-	                            content.querySelector('.chat-user-badges').appendChild(setBadge(badge.src));
-	                        else if (badge.type === 'svg' && badge.html) {
-	                            var base = document.createElement('span');
-	                            var svg = document.createElement('svg');
-	
-	                            svg.innerHTML = badge.html
-	
-	                            base.classList.add('badge');
-	                            base.appendChild(svg)
-	                        }
-	
-	                        return
-	                    }
-	                    
-	                    content.querySelector('.chat-user-badges').appendChild(setBadge(badge))
-	                })
-	            }
-	
-	            content.querySelector('.chat-user-name').innerText = data?.chatname;
-	
-	            if (data?.nameColor)
-	                content.querySelector('.chat-user-name').setAttribute('style', `--color: ${data.nameColor}`);
-	
-	            content.querySelector('.chat-message-content').innerHTML = data?.chatmessage ? formatMessageText(data?.chatmessage) : '';
-	
-	            if (reversed) {
-	                const firstMessage = chatContainer.querySelector('.chat');
-	
-	                if (firstMessage)
-	                    chatContainer.insertBefore(messageElement, firstMessage);
-	                else
-	                    chatContainer.appendChild(messageElement);
-	            } else
-	                chatContainer.appendChild(messageElement);
-	
-	            void messageElement?.offsetWidth;
+        messageDuration: Number(urlParams.get('messageduration')) || 30000,
+        maxBadges: Number(urlParams.get('limitbadges')) || Infinity,
+        maxMessages: Number(urlParams.get('limit')) || Infinity,
 
-				chatContainer?.scrollTo({ top: chatContainer?.scrollHeight, behavior: 'smooth' });
+        hideCommands: urlParams.has('hidecommands'),
+        darkMode: urlParams.has('darkMode'),
 
-				requestAnimationFrame(() => {
-					messageElement.style?.setProperty('max-height', `${getTrueHeight(messageElement)}px`, 'important');
-					messageElement.style?.setProperty('animation-delay', `0s, ${MESSAGE_DURATION}ms`);
-				});
-	
-	            const messages = Array.from(chatContainer.children).filter(
-	                child => child.classList.contains('chat')
-	            );
-	
-	            setTimeout(() => {
-	                chatContainer.removeChild(messageElement)
-	            }, parseInt(MESSAGE_DURATION + 250));
-	
-	            if (messages.length > MAX_MESSAGES) {
-	                const oldestMessage = reversed ? messages[messages.length - 1] : messages[0];
-	
-	                if (oldestMessage) {
-	                    messageTimestamps.delete(oldestMessage.id);
-	                    chatContainer.removeChild(oldestMessage);
-	                }
-	            }
-	        }
-	
-	        var iframe = document.createElement('iframe');
-	        if (featuredMode)
-	            iframe.src = `https://vdo.socialstream.ninja/?ln&password=${password}&salt=vdo.ninja&label=overlay&exclude=${roomID}&scene&novideo&noaudio&cleanoutput&room=${roomID}`;
-	        else
-	            iframe.src = `https://vdo.socialstream.ninja/?ln&salt=vdo.ninja&password=${password}&push&label=dock&vd=0&ad=0&novideo&noaudio&autostart&cleanoutput&room=${roomID}`;
-	
-	        iframe.style.cssText = 'width:0;height:0;position:fixed;left:-100px;top:-100px';
-	        document.body.appendChild(iframe);
-	        window.addEventListener('message', function (e) {
-	            if (e.source != iframe.contentWindow) return;
-	
-	            if (e.data.dataReceived && e.data.dataReceived.overlayNinja)
-	                addMessageToOverlay(e.data.dataReceived.overlayNinja);
-	        });
-	
-	        var conCon = 1;
-	        var socketserver = false;
-	        var serverURL = urlParams.has('localserver') ? 'ws://127.0.0.1:3000' : 'wss://io.socialstream.ninja';
-	
-	        function setupSocket() {
-	            socketserver.onclose = function () {
-	                setTimeout(function () {
-	                    conCon += 1;
-	                    socketserver = new WebSocket(serverURL);
-	                    setupSocket();
-	                }, 100 * conCon);
-	            };
-	            socketserver.onopen = function () {
-	                conCon = 1;
-	                socketserver.send(JSON.stringify({ 'join': roomID, 'out': 3, 'in': 4 }));
-	            };
-	            socketserver.addEventListener('message', function (event) {
-	                if (event.data) {
-	                    try {
-	                        var data = JSON.parse(event.data);
-	                        if (data)
-	                            addMessageToOverlay(data);
-	
-	                    } catch (error) {
-	                        console.error('Error processing WebSocket message:', error, 'Data:', event.data);
-	                    }
-	                }
-	            })
-	        }
-	
-	        if (urlParams.has('server') || urlParams.has('server2')) {
-	            serverURL = urlParams.get('server') || urlParams.get('server2') || serverURL;
-	            socketserver = new WebSocket(serverURL);
-	            setupSocket()
-	        }
+        serverURL:
+            urlParams.get('server') ||
+            urlParams.get('server2') ||
+            (
+                urlParams.has('localserver')
+                    ? 'ws://127.0.0.1:3000'
+                    : 'wss://io.socialstream.ninja'
+            ),
+
+        useSocket:
+            urlParams.has('server') ||
+            urlParams.has('server2')
+    };
+
+    // ==========================================
+    // DOM
+    // ==========================================
+
+    const DOM = {
+        container: document.querySelector('.main-container'),
+
+        templates: {
+            message: document.getElementById('message-template'),
+            link: document.getElementById('link-template'),
+            mention: document.getElementById('mention-template')
+        }
+    };
+
+    if (CONFIG.reversed) {
+        DOM.container.classList.add('reverse');
+    }
+
+    // ==========================================
+    // STATE
+    // ==========================================
+
+    const state = {
+        socket: null,
+        reconnectAttempts: 0,
+        messageTimers: new Map()
+    };
+
+    // ==========================================
+    // HELPERS
+    // ==========================================
+
+    const isObject = value =>
+        value !== null && typeof value === 'object';
+
+    const safeText = value =>
+        value?.toString?.() || '';
+
+    const nextFrame = () =>
+        new Promise(resolve => requestAnimationFrame(resolve));
+
+    const createElement = (tag, className = '') => {
+        const element = document.createElement(tag);
+
+        if (className) {
+            element.className = className;
+        }
+
+        return element;
+    };
+
+    // ==========================================
+    // MESSAGE FORMATTERS
+    // ==========================================
+
+    function formatMessageText(text = '') {
+        let formatted = safeText(text);
+
+        formatted = formatted.replace(
+            /(?<![\(\"\'\=])(https?\:\/\/[^\s\<\>\"\'\)]+)/gi,
+            (match) => {
+                const linkTemplate =
+                    DOM.templates.link?.content?.cloneNode(true);
+
+                const link =
+                    linkTemplate?.querySelector('.link');
+
+                if (!link) {
+                    return match;
+                }
+
+                link.textContent = match;
+
+                return link.outerHTML;
+            }
+        );
+
+        formatted = formatted.replace(
+            /\@([A-Za-z0-9\-\_]{4,})/gi,
+            (match) => {
+                const mentionTemplate =
+                    DOM.templates.mention?.content?.cloneNode(true);
+
+                const mention =
+                    mentionTemplate?.querySelector('.mention');
+
+                if (!mention) {
+                    return match;
+                }
+
+                mention.textContent = match;
+
+                return mention.outerHTML;
+            }
+        );
+
+        return formatted;
+    }
+
+    // ==========================================
+    // BADGES / SOURCE
+    // ==========================================
+
+    function createBadge(src) {
+        if (!src) return null;
+
+        const image = new Image();
+        const element = createElement('img', 'badge');
+
+        image.onload = ({ target }) => {
+            element.src = target.src;
+        };
+
+        image.src = src;
+
+        return element;
+    }
+
+    function createSVGadge(html) {
+        if (!html) return null;
+
+        const wrapper = createElement('span', 'badge');
+        const svg = document.createElement('svg');
+
+        svg.innerHTML = html;
+
+        wrapper.appendChild(svg);
+
+        return wrapper;
+    }
+
+    function createSource(platform) {
+        if (!platform) return null;
+
+        return createElement(
+            'span',
+            `source ${platform}`
+        );
+    }
+
+    // ==========================================
+    // HEIGHT
+    // ==========================================
+
+    function getTrueHeight(element) {
+        if (!element) return 0;
+
+        const style = getComputedStyle(element);
+
+        const parentStyle = element.parentElement
+            ? getComputedStyle(element.parentElement)
+            : null;
+
+        return (
+            element.scrollHeight +
+            (parseFloat(style.gap) || 0) +
+            (parseFloat(parentStyle?.gap) || 0)
+        );
+    }
+
+    // ==========================================
+    // REMOVE MESSAGE
+    // ==========================================
+
+    function removeMessage(messageElement) {
+        if (!messageElement?.parentNode) {
+            return;
+        }
+
+        const messageId = messageElement.id;
+
+        if (state.messageTimers.has(messageId)) {
+            clearTimeout(state.messageTimers.get(messageId));
+            state.messageTimers.delete(messageId);
+        }
+
+        messageElement.remove();
+    }
+
+    // ==========================================
+    // MESSAGE CREATION
+    // ==========================================
+
+    async function addMessageToOverlay(data) {
+        if (!data) return;
+
+        const {
+            chatname,
+            chatmessage,
+            hasDonation,
+            donation,
+            type,
+            chatbadges,
+            nameColor,
+            mid
+        } = data;
+
+        // ==========================================
+        // VALIDATION
+        // ==========================================
+
+        if (
+            !chatname ||
+            !chatmessage ||
+            hasDonation ||
+            donation
+        ) {
+            return;
+        }
+
+        if (
+            CONFIG.hideCommands &&
+            chatmessage.startsWith('!')
+        ) {
+            return;
+        }
+
+        // ==========================================
+        // TEMPLATE
+        // ==========================================
+
+        const fragment =
+            DOM.templates.message.content.cloneNode(true);
+
+        const messageElement =
+            fragment.querySelector('.chat');
+
+        const badgesContainer =
+            fragment.querySelector('.chat-user-badges');
+
+        const usernameElement =
+            fragment.querySelector('.chat-user-name');
+
+        const messageContent =
+            fragment.querySelector('.chat-message-content');
+
+        const messageId =
+            mid || `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+        // ==========================================
+        // ATTRIBUTES
+        // ==========================================
+
+        messageElement.id = messageId;
+        messageElement.dataset.platform = type || '';
+        messageElement.dataset.from = chatname;
+
+        if (CONFIG.darkMode) {
+            messageElement.classList.add('dark');
+        }
+
+        // ==========================================
+        // SOURCE
+        // ==========================================
+
+        if (type) {
+            const source = createSource(type);
+
+            if (source) {
+                badgesContainer.appendChild(source);
+            }
+        }
+
+        // ==========================================
+        // BADGES
+        // ==========================================
+
+        if (Array.isArray(chatbadges)) {
+            for (const badge of chatbadges.slice(0, CONFIG.maxBadges)) {
+
+                if (isObject(badge)) {
+
+                    if (badge.type === 'img' && badge.src) {
+                        const badgeElement =
+                            createBadge(badge.src);
+
+                        if (badgeElement) {
+                            badgesContainer.appendChild(badgeElement);
+                        }
+                    }
+
+                    else if (badge.type === 'svg' && badge.html) {
+                        const svgBadge =
+                            createSVGadge(badge.html);
+
+                        if (svgBadge) {
+                            badgesContainer.appendChild(svgBadge);
+                        }
+                    }
+
+                    continue;
+                }
+
+                const badgeElement =
+                    createBadge(badge);
+
+                if (badgeElement) {
+                    badgesContainer.appendChild(badgeElement);
+                }
+            }
+        }
+
+        // ==========================================
+        // USERNAME
+        // ==========================================
+
+        usernameElement.textContent = chatname;
+
+        if (nameColor) {
+            usernameElement.style.setProperty(
+                '--color',
+                nameColor
+            );
+        }
+
+        // ==========================================
+        // MESSAGE
+        // ==========================================
+
+        messageContent.innerHTML =
+            formatMessageText(chatmessage);
+
+        // ==========================================
+        // INSERT
+        // ==========================================
+
+        if (CONFIG.reversed) {
+
+            const firstMessage =
+                DOM.container.querySelector('.chat');
+
+            if (firstMessage) {
+                DOM.container.insertBefore(
+                    messageElement,
+                    firstMessage
+                );
+            } else {
+                DOM.container.appendChild(messageElement);
+            }
+
+        } else {
+
+            DOM.container.appendChild(messageElement);
+        }
+
+        // ==========================================
+        // FORCE REFLOW
+        // ==========================================
+
+        void messageElement.offsetWidth;
+
+        DOM.container.scrollTo({
+            top: DOM.container.scrollHeight,
+            behavior: 'smooth'
+        });
+
+        await nextFrame();
+
+        messageElement.style.setProperty(
+            'max-height',
+            `${getTrueHeight(messageElement)}px`,
+            'important'
+        );
+
+        messageElement.style.setProperty(
+            'animation-delay',
+            `0s, ${CONFIG.messageDuration}ms`
+        );
+
+        // ==========================================
+        // AUTO REMOVE
+        // ==========================================
+
+        const timeout = setTimeout(() => {
+            removeMessage(messageElement);
+        }, CONFIG.messageDuration + 250);
+
+        state.messageTimers.set(
+            messageId,
+            timeout
+        );
+
+        // ==========================================
+        // LIMIT MESSAGES
+        // ==========================================
+
+        const messages = DOM.container.querySelectorAll('.chat');
+
+        if (messages.length > CONFIG.maxMessages) {
+
+            const oldestMessage = CONFIG.reversed
+                ? messages[messages.length - 1]
+                : messages[0];
+
+            if (oldestMessage) {
+                removeMessage(oldestMessage);
+            }
+        }
+    }
+
+    // ==========================================
+    // IFRAME BRIDGE
+    // ==========================================
+
+    function createBridgeIframe() {
+
+        const iframe = document.createElement('iframe');
+
+        iframe.src = CONFIG.featuredMode
+            ? `https://vdo.socialstream.ninja/?ln&password=${CONFIG.password}&salt=vdo.ninja&label=overlay&exclude=${CONFIG.roomID}&scene&novideo&noaudio&cleanoutput&room=${CONFIG.roomID}`
+            : `https://vdo.socialstream.ninja/?ln&salt=vdo.ninja&password=${CONFIG.password}&push&label=dock&vd=0&ad=0&novideo&noaudio&autostart&cleanoutput&room=${CONFIG.roomID}`;
+
+        iframe.allow =
+            'midi;geolocation;microphone;';
+
+        iframe.style.cssText = `
+            width:0;
+            height:0;
+            position:fixed;
+            left:-100px;
+            top:-100px;
+            border:0;
+            pointer-events:none;
+        `;
+
+        document.body.appendChild(iframe);
+
+        window.addEventListener('message', ({ source, data }) => {
+
+            if (source !== iframe.contentWindow) {
+                return;
+            }
+
+            const overlayData =
+                data?.dataReceived?.overlayNinja;
+
+            if (!overlayData) {
+                return;
+            }
+
+            addMessageToOverlay(overlayData);
+
+        });
+
+        return iframe;
+    }
+
+    // ==========================================
+    // WEBSOCKET
+    // ==========================================
+
+    function connectSocket() {
+
+        if (!CONFIG.useSocket) {
+            return;
+        }
+
+        if (state.socket) {
+            state.socket.close();
+        }
+
+        state.socket = new WebSocket(
+            CONFIG.serverURL
+        );
+
+        state.socket.onopen = () => {
+
+            state.reconnectAttempts = 0;
+
+            state.socket.send(
+                JSON.stringify({
+                    join: CONFIG.roomID,
+                    out: 3,
+                    in: 4
+                })
+            );
+        };
+
+        state.socket.onmessage = ({ data }) => {
+
+            if (!data) return;
+
+            try {
+
+                const parsed = JSON.parse(data);
+
+                if (parsed) {
+                    addMessageToOverlay(parsed);
+                }
+
+            } catch (error) {
+
+                console.error(
+                    '[WebSocket] Parse error:',
+                    error,
+                    data
+                );
+            }
+        };
+
+        state.socket.onerror = (error) => {
+            console.error(
+                '[WebSocket] Error:',
+                error
+            );
+        };
+
+        state.socket.onclose = () => {
+
+            state.reconnectAttempts++;
+
+            const reconnectDelay = Math.min(
+                100 * state.reconnectAttempts,
+                5000
+            );
+
+            setTimeout(
+                connectSocket,
+                reconnectDelay
+            );
+        };
+    }
+
+    // ==========================================
+    // VISIBILITY RECOVERY
+    // ==========================================
+
+    document.addEventListener(
+        'visibilitychange',
+        () => {
+
+            if (
+                document.visibilityState === 'visible' &&
+                CONFIG.useSocket &&
+                (
+                    !state.socket ||
+                    state.socket.readyState !== WebSocket.OPEN
+                )
+            ) {
+                connectSocket();
+            }
+        }
+    );
+
+    // ==========================================
+    // INIT
+    // ==========================================
+
+    createBridgeIframe();
+    connectSocket();
+
+})();
 	    </script>
 	</body>
 </html>
