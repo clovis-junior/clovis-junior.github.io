@@ -103,6 +103,20 @@
             -webkit-mask-image: url('https://i.imgur.com/paZ8nLv.png');
         }
 
+        .badges {
+            flex: 0 1;
+            height: var(--badge-size);
+            display: flex;
+            flex-wrap: nowrap;
+            flex-direction: row;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            border-radius: 5px;
+            line-height: var(--badge-size);
+            background-color: transparent;
+        }
+
         .message {
             display: flex;
             flex-wrap: nowrap;
@@ -114,9 +128,6 @@
 
         .message-header,
         .message-content {
-            flex: 1 0 auto;
-            min-width: 25%;
-            max-width: 100%;
             display: flex;
             flex-wrap: nowrap;
             flex-direction: row;
@@ -129,8 +140,12 @@
 
         .message-header {
             z-index: 2;
+            flex: 1 0 auto;
+            min-width: 25%;
+            max-width: 100%;
             gap: 1rem;
             padding: 10px 20px 10px 10px;
+            background-color: var(--background-color);
             font-weight: 700;
             position: relative;
         }
@@ -182,6 +197,9 @@
         }
 
         .message-text {
+            flex: 1 0 auto;
+            min-width: 40%;
+            max-width: 100%;
             max-height: 9rem;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -205,9 +223,11 @@
         <article class="message font-light">
             <header class="message-header">
                 <figure class="author-avatar">
-                    <img src="./sources/images/unknown.png" alt />
+                    <img src alt />
                 </figure>
-                <span class="source"></span>
+                <div class="badges">
+                    <span class="source"></span>
+                </div>
                 <span class="author-name"></span>
                 <aside class="message-tip"></aside>
             </header>
@@ -293,12 +313,12 @@
             // ==========================================
 
             const PLATFORM_COLORS = {
-                youtube: '#ff0000',
-                youtubeshorts: '#ff0000',
-                twitch: '#9146ff',
-                kick: '#53fc18',
-                facebook: '#1877f2',
-                tiktok: '#000000'
+                youtube: '#f80231',
+                youtubeshorts: '#f80231',
+                twitch: '#6441a5',
+                kick: '#00e701',
+                facebook: '#005FED',
+                tiktok: '#2af0ea'
             };
 
             const URL_REGEX =
@@ -800,6 +820,11 @@
                         '.source'
                     );
 
+                const authorBadges =
+                    fragment.querySelector(
+                        '.badges'
+                    );
+
                 const authorName =
                     fragment.querySelector(
                         '.author-name'
@@ -842,15 +867,19 @@
                         data.type || ''
                     ).toLowerCase();
 
+                const platformColor =
+                    PLATFORM_COLORS[platform] ||
+                    '#2b2b2b';
+
                 const userColor =
                     data.nameColor ||
                     data.backgroundColor ||
-                    '#000000';
+                    platformColor;
 
                 const donationValue =
                     data.hasDonation ||
                     data.donation ||
-                    data.membership ||
+                    // data.membership ||
                     '';
 
                 // ==========================================
@@ -867,11 +896,13 @@
                 // COLORS
                 // ==========================================
 
-                header.style.backgroundColor =
+                header.style.setProperty(
+                    '--background-color',
                     shadeColor(
                         userColor,
                         -0.18
-                    );
+                    )
+                );
 
                 content.style.setProperty(
                     '--background-color',
@@ -927,6 +958,76 @@
 
                 authorName.textContent =
                     chatname;
+
+                // ==========================================
+                // BADGES
+                // ==========================================
+
+                const badges =
+                    data.chatbadges ||
+                    data.badges ||
+                    [];
+
+                if (
+                    Array.isArray(badges) &&
+                    badges.length
+                ) {
+
+                    badges.forEach(badge => {
+
+                        if (!badge) {
+                            return;
+                        }
+
+                        const badgeElement =
+                            document.createElement('img');
+
+                        badgeElement.className =
+                            'badge';
+
+                        badgeElement.loading =
+                            'lazy';
+
+                        badgeElement.decoding =
+                            'async';
+
+                        // Social Stream Ninja pode mandar:
+                        // string
+                        // ou objeto { src, type }
+
+                        if (
+                            typeof badge ===
+                            'string'
+                        ) {
+
+                            badgeElement.src =
+                                badge;
+
+                        } else if (
+                            typeof badge ===
+                            'object'
+                        ) {
+
+                            badgeElement.src =
+                                badge.src ||
+                                badge.url ||
+                                '';
+                        }
+
+                        if (!badgeElement.src) {
+                            return;
+                        }
+
+                        badgeElement.onerror =
+                            () => {
+                                badgeElement.remove();
+                            };
+
+                        authorBadges.appendChild(
+                            badgeElement
+                        );
+                    });
+                }
 
                 // ==========================================
                 // DONATION
