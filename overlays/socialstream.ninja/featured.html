@@ -268,6 +268,9 @@
                 shortenLinks:
                     params.has('shortlinks'),
 
+                showBadges:
+                    !params.has('hidebadges'),
+
                 showTime:
                     Number(
                         params.get('showtime')
@@ -969,6 +972,7 @@
                     [];
 
                 if (
+                    CONFIG.showBadges &&
                     Array.isArray(badges) &&
                     badges.length
                 ) {
