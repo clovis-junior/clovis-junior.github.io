@@ -45,6 +45,11 @@
             text-rendering: optimizeLegibility;
         }
 
+        img {
+            -o-object-fit: cover;
+            object-fit: cover;
+        }
+
         .main-container {
             max-width: 100vw;
             height: 100vh;
@@ -115,6 +120,13 @@
             border-radius: 5px;
             line-height: var(--badge-size);
             background-color: transparent;
+        }
+
+        .badges img,
+        .badges .badge {
+            width: var(--emote-size);
+            height: auto;
+            display: block;
         }
 
         .message {
@@ -191,8 +203,6 @@
             width: var(--emote-size);
             height: auto;
             display: inline-block;
-            -o-object-fit: cover;
-            object-fit: cover;
             margin: 0 5px;
         }
 
