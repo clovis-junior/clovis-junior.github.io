@@ -203,960 +203,1260 @@
         </div>
     </template>
     <script type="text/javascript">
-        (() => {
-            'use strict';
+(() => {
+    'use strict';
 
-            // ==========================================
-            // DOM
-            // ==========================================
+    // ==========================================
+    // DOM
+    // ==========================================
 
-            const container =
-                document.getElementById('platform_container');
+    const container =
+        document.getElementById(
+            'platform_container'
+        );
 
-            const template =
-                document.getElementById('platform-template');
+    const template =
+        document.getElementById(
+            'platform-template'
+        );
 
-            const params =
-                new URLSearchParams(window.location.search);
+    const params =
+        new URLSearchParams(
+            window.location.search
+        );
 
-            // ==========================================
-            // CONFIG
-            // ==========================================
+    // ==========================================
+    // CONFIG
+    // ==========================================
 
-            const CONFIG = {
-                session:
-                    params.get('session') || '',
+    const CONFIG = {
 
-                password:
-                    params.get('password') || 'false',
+        session:
+            params.get('session') || '',
 
-                lanOnly:
-                    params.has('lanonly'),
+        password:
+            params.get('password') || 'false',
 
-                hasServerMode:
-                    params.has('server') ||
-                    params.has('server2') ||
-                    params.has('server3')
-            };
+        lanOnly:
+            params.has('lanonly'),
 
-            // ==========================================
-            // STATE
-            // ==========================================
+        debug:
+            params.has('debug'),
 
-            const state = new Map();
-            const elements = new Map();
-            const sockets = [];
+        hasServerMode:
+            params.has('server') ||
+            params.has('server2') ||
+            params.has('server3')
+    };
 
-            let iframe = null;
-            let sequence = 0;
+    // ==========================================
+    // CONSTANTS
+    // ==========================================
 
-            let viewerCounts =
-                Object.create(null);
+    const KNOWN_PLATFORMS = [
+        'youtube',
+        'twitch',
+        'kick',
+        'facebook',
+        'tiktok',
+        'trovo'
+    ];
 
-            // ==========================================
-            // CONSTANTS
-            // ==========================================
+    const PLATFORM_ORDER = {
+        total: 0,
+        twitch: 1,
+        youtube: 2,
+        kick: 3,
+        facebook: 4,
+        tiktok: 5,
+        trovo: 6
+    };
 
-            const PLATFORM_ORDER = {
-                total: 0,
-                twitch: 1,
-                youtube: 2,
-                kick: 3,
-                facebook: 4,
-                tiktok: 5,
-                trovo: 6
-            };
+    // ==========================================
+    // STATE
+    // ==========================================
 
-            // ==========================================
-            // HELPERS
-            // ==========================================
+    const state =
+        new Map();
 
-            const wait = ms =>
-                new Promise(resolve =>
-                    setTimeout(resolve, ms)
+    const elements =
+        new Map();
+
+    const sockets = [];
+
+    const viewerCounts =
+        Object.create(null);
+
+    const activePlatforms =
+        new Set();
+
+    let iframe = null;
+
+    let sequence = 0;
+
+    let renderScheduled =
+        false;
+
+    // ==========================================
+    // HELPERS
+    // ==========================================
+
+    function debug(...args) {
+
+        if (!CONFIG.debug) {
+            return;
+        }
+
+        console.log(
+            '[Views Overlay]',
+            ...args
+        );
+    }
+
+    function parseNumber(value) {
+
+        if (
+            typeof value === 'number' &&
+            Number.isFinite(value)
+        ) {
+            return value;
+        }
+
+        if (
+            typeof value === 'string'
+        ) {
+
+            const cleaned =
+                value.replace(
+                    /[^0-9.-]/g,
+                    ''
                 );
 
-            function parseNumber(value) {
-
-                if (
-                    typeof value === 'number' &&
-                    Number.isFinite(value)
-                ) {
-                    return value;
-                }
-
-                if (
-                    typeof value === 'string'
-                ) {
-
-                    const cleaned =
-                        value.replace(
-                            /[^0-9.-]/g,
-                            ''
-                        );
-
-                    if (!cleaned) {
-                        return null;
-                    }
-
-                    const parsed =
-                        parseFloat(cleaned);
-
-                    return Number.isFinite(parsed)
-                        ? parsed
-                        : null;
-                }
-
+            if (!cleaned) {
                 return null;
             }
 
-            function formatNumberShort(
-                number,
-                precision = 1
-            ) {
+            const parsed =
+                parseFloat(cleaned);
 
-                number = Number(number);
+            return Number.isFinite(parsed)
+                ? parsed
+                : null;
+        }
 
-                if (number < 1000) {
-                    return number.toString();
-                }
+        return null;
+    }
 
-                const suffixes =
-                    ['K', 'M', 'B', 'T'];
+    function formatNumberShort(
+        number,
+        precision = 1
+    ) {
 
-                const suffixIndex =
-                    Math.floor(
-                        Math.log10(number) / 3
-                    ) - 1;
+        number = Number(number);
 
-                const shortValue =
-                    number /
-                    Math.pow(
-                        1000,
-                        suffixIndex + 1
-                    );
+        if (
+            !Number.isFinite(number)
+        ) {
+            return '0';
+        }
 
-                return `${parseFloat(
-                    shortValue.toFixed(
-                        precision
-                    )
-                )}${suffixes[suffixIndex]}`;
+        if (number < 1000) {
+            return number.toString();
+        }
+
+        const suffixes =
+            ['K', 'M', 'B', 'T'];
+
+        const suffixIndex =
+            Math.floor(
+                Math.log10(number) / 3
+            ) - 1;
+
+        const shortValue =
+            number /
+            Math.pow(
+                1000,
+                suffixIndex + 1
+            );
+
+        return `${parseFloat(
+            shortValue.toFixed(
+                precision
+            )
+        )}${suffixes[suffixIndex]}`;
+    }
+
+    function normalizeEventName(
+        eventName
+    ) {
+
+        if (
+            typeof eventName !==
+            'string'
+        ) {
+            return '';
+        }
+
+        return eventName
+            .toLowerCase()
+            .replace(
+                /[^a-z0-9]+/g,
+                '_'
+            )
+            .replace(
+                /_+/g,
+                '_'
+            )
+            .replace(
+                /^_+|_+$/g,
+                ''
+            );
+    }
+
+    function isPlainObject(value) {
+
+        return (
+            Object.prototype.toString.call(
+                value
+            ) === '[object Object]'
+        );
+    }
+
+    function extractViewerCount(
+        data,
+        meta
+    ) {
+
+        let count =
+            parseNumber(meta);
+
+        if (count !== null) {
+            return count;
+        }
+
+        if (
+            meta &&
+            typeof meta === 'object'
+        ) {
+
+            count =
+                parseNumber(
+                    meta.viewers ??
+                    meta.viewerCount ??
+                    meta.viewer_count ??
+                    meta.concurrentViewers ??
+                    meta.participants ??
+                    meta.audience ??
+                    meta.watchers ??
+                    meta.count
+                );
+
+            if (count !== null) {
+                return count;
             }
+        }
 
-            function normalizeEventName(
-                eventName
-            ) {
+        count =
+            parseNumber(
+                data.viewers ??
+                data.viewerCount ??
+                data.viewer_count ??
+                data.concurrentViewers ??
+                data.watchers ??
+                data.count
+            );
+
+        return count;
+    }
+
+    // ==========================================
+    // PLATFORM
+    // ==========================================
+
+    function registerPlatform(
+        platform
+    ) {
+
+        if (!platform) {
+            return;
+        }
+
+        platform =
+            platform.toLowerCase();
+
+        if (
+            !KNOWN_PLATFORMS.includes(
+                platform
+            )
+        ) {
+            return;
+        }
+
+        if (
+            activePlatforms.has(
+                platform
+            )
+        ) {
+            return;
+        }
+
+        activePlatforms.add(
+            platform
+        );
+
+        if (
+            viewerCounts[
+            platform
+            ] === undefined
+        ) {
+
+            viewerCounts[
+                platform
+            ] = 0;
+        }
+
+        debug(
+            'Platform registered:',
+            platform
+        );
+
+        syncViewerEntries();
+    }
+
+    // ==========================================
+    // ENTRY
+    // ==========================================
+
+    function setEntry({
+        id,
+        platform,
+        value,
+        label
+    }) {
+
+        if (!id) {
+            return;
+        }
+
+        const existing =
+            state.get(id);
+
+        state.set(id, {
+
+            id,
+
+            platform,
+
+            value,
+
+            label,
+
+            order:
+                PLATFORM_ORDER[
+                platform
+                ] ?? 999,
+
+            sequence:
+                existing?.sequence ??
+                ++sequence
+        });
+    }
+
+    // ==========================================
+    // VIEWERS
+    // ==========================================
+
+    function syncViewerEntries() {
+
+        let total = 0;
+
+        Object.entries(
+            viewerCounts
+        ).forEach(
+            ([platform, count]) => {
+
+                const numeric =
+                    parseNumber(count);
 
                 if (
-                    typeof eventName !==
-                    'string'
+                    numeric === null
                 ) {
-                    return '';
-                }
-
-                return eventName
-                    .toLowerCase()
-                    .replace(
-                        /[^a-z0-9]+/g,
-                        '_'
-                    )
-                    .replace(
-                        /_+/g,
-                        '_'
-                    )
-                    .replace(
-                        /^_+|_+$/g,
-                        ''
-                    );
-            }
-
-            function isPlainObject(value) {
-
-                return (
-                    Object.prototype.toString.call(
-                        value
-                    ) === '[object Object]'
-                );
-            }
-
-            // ==========================================
-            // ENTRY
-            // ==========================================
-
-            function setEntry({
-                id,
-                platform,
-                value,
-                label
-            }) {
-
-                if (!id) {
                     return;
                 }
 
-                const existing =
-                    state.get(id);
+                total += numeric;
 
-                state.set(id, {
-                    id,
+                setEntry({
+
+                    id:
+                        `viewer-${platform}`,
+
                     platform,
-                    value,
-                    label,
-                    order:
-                        PLATFORM_ORDER[
-                        platform
-                        ] ?? 999,
-                    sequence:
-                        existing?.sequence ??
-                        ++sequence
+
+                    label:
+                        `${platform.toUpperCase()} Viewers`,
+
+                    value:
+                        numeric
                 });
             }
+        );
 
-            // ==========================================
-            // VIEWERS
-            // ==========================================
+        setEntry({
 
-            function syncViewerEntries() {
+            id:
+                'viewer-total',
 
-                let total = 0;
+            platform:
+                'total',
 
-                Object.entries(
-                    viewerCounts
-                ).forEach(
-                    ([platform, count]) => {
+            label:
+                'Total Viewers',
 
-                        const numeric =
-                            parseNumber(count);
+            value:
+                total
+        });
+
+        scheduleRender();
+    }
+
+    // ==========================================
+    // RENDER
+    // ==========================================
+
+    function scheduleRender() {
+
+        if (renderScheduled) {
+            return;
+        }
+
+        renderScheduled = true;
+
+        requestAnimationFrame(
+            () => {
+
+                renderScheduled =
+                    false;
+
+                render();
+            }
+        );
+    }
+
+    function createPlatformElement(
+        entry
+    ) {
+
+        const fragment =
+            template.content.cloneNode(
+                true
+            );
+
+        const base =
+            fragment.querySelector(
+                '.platform'
+            );
+
+        const icon =
+            fragment.querySelector(
+                '.icon'
+            );
+
+        const views =
+            fragment.querySelector(
+                '.views'
+            );
+
+        base.dataset.platform =
+            entry.platform;
+
+        base.dataset.id =
+            entry.id;
+
+        base.classList.add(
+            entry.platform
+        );
+
+        icon?.classList.add(
+            entry.platform
+        );
+
+        views.dataset.value =
+            entry.value;
+
+        views.textContent =
+            formatNumberShort(
+                entry.value
+            );
+
+        container.appendChild(
+            base
+        );
+
+        elements.set(
+            entry.id,
+            {
+                base,
+                views
+            }
+        );
+    }
+
+    function animateUpdate(
+        element
+    ) {
+
+        element.classList.remove(
+            'animate-pop'
+        );
+
+        void element.offsetWidth;
+
+        element.classList.add(
+            'animate-pop'
+        );
+
+        clearTimeout(
+            element._animationTimeout
+        );
+
+        element._animationTimeout =
+            setTimeout(() => {
+
+                element.classList.remove(
+                    'animate-pop'
+                );
+
+            }, 400);
+    }
+
+    function updatePlatformElement(
+        entry
+    ) {
+
+        let element =
+            elements.get(
+                entry.id
+            );
+
+        if (!element) {
+
+            createPlatformElement(
+                entry
+            );
+
+            element =
+                elements.get(
+                    entry.id
+                );
+        }
+
+        const currentValue =
+            Number(
+                element.views.dataset
+                    .value
+            );
+
+        if (
+            currentValue ===
+            entry.value
+        ) {
+            return;
+        }
+
+        element.views.dataset.value =
+            entry.value;
+
+        element.views.textContent =
+            formatNumberShort(
+                entry.value
+            );
+
+        animateUpdate(
+            element.views
+        );
+    }
+
+    function render() {
+
+        const entries =
+            [...state.values()]
+                .sort(
+                    (a, b) => {
 
                         if (
-                            numeric === null
+                            a.order !==
+                            b.order
+                        ) {
+                            return (
+                                a.order -
+                                b.order
+                            );
+                        }
+
+                        return (
+                            a.sequence -
+                            b.sequence
+                        );
+                    }
+                );
+
+        entries.forEach(
+            updatePlatformElement
+        );
+    }
+
+    // ==========================================
+    // PAYLOAD
+    // ==========================================
+
+    function processPayload(data) {
+
+        if (
+            !data ||
+            typeof data !==
+            'object'
+        ) {
+            return;
+        }
+
+        if (
+            data.content &&
+            typeof data.content ===
+            'object'
+        ) {
+
+            data =
+                data.content;
+        }
+
+        const platform =
+            (
+                data.platform ||
+                data.type ||
+                data.event ||
+                ''
+            )
+                .toString()
+                .toLowerCase();
+
+        const eventName =
+            normalizeEventName(
+                data.event ||
+                data.type ||
+                ''
+            );
+
+        const meta =
+            data.meta;
+
+        debug(
+            'Payload:',
+            {
+                platform,
+                eventName,
+                data
+            }
+        );
+
+        // ==========================================
+        // REGISTER PLATFORM
+        // ==========================================
+
+        if (
+            KNOWN_PLATFORMS.includes(
+                platform
+            )
+        ) {
+
+            registerPlatform(
+                platform
+            );
+        }
+
+        // ==========================================
+        // MULTI VIEWERS
+        // ==========================================
+
+        if (
+            eventName ===
+            'viewer_updates'
+        ) {
+
+            if (
+                !isPlainObject(meta)
+            ) {
+                return;
+            }
+
+            let changed =
+                false;
+
+            Object.entries(meta)
+                .forEach(
+                    ([platform, value]) => {
+
+                        platform =
+                            platform.toLowerCase();
+
+                        registerPlatform(
+                            platform
+                        );
+
+                        const count =
+                            parseNumber(
+                                value
+                            );
+
+                        if (
+                            count === null
                         ) {
                             return;
                         }
 
-                        total += numeric;
+                        if (
+                            viewerCounts[
+                            platform
+                            ] === count
+                        ) {
+                            return;
+                        }
 
-                        setEntry({
-                            id:
-                                `viewer-${platform}`,
+                        viewerCounts[
+                            platform
+                            ] = count;
 
-                            platform,
-
-                            label:
-                                `${platform.toUpperCase()} Viewers`,
-
-                            value: numeric
-                        });
+                        changed = true;
                     }
                 );
 
-                setEntry({
-                    id: 'viewer-total',
-                    platform: 'total',
-                    label: 'Total Viewers',
-                    value: total
-                });
-
-                render();
+            if (changed) {
+                syncViewerEntries();
             }
 
-            // ==========================================
-            // ANIMATION
-            // ==========================================
+            return;
+        }
 
-            async function animateUpdate(
-                element
+        // ==========================================
+        // SINGLE PLATFORM
+        // ==========================================
+
+        if (
+            !KNOWN_PLATFORMS.includes(
+                platform
+            )
+        ) {
+            return;
+        }
+
+        const count =
+            extractViewerCount(
+                data,
+                meta
+            );
+
+        // plataforma ativa
+        // mas offline
+        if (
+            count === null
+        ) {
+
+            if (
+                viewerCounts[
+                platform
+                ] === undefined
             ) {
 
-                element.classList.remove(
-                    'animate-pop'
-                );
+                viewerCounts[
+                    platform
+                ] = 0;
 
-                void element.offsetWidth;
-
-                element.classList.add(
-                    'animate-pop'
-                );
-
-                await wait(400);
-
-                element.classList.remove(
-                    'animate-pop'
-                );
+                syncViewerEntries();
             }
 
-            // ==========================================
-            // CREATE ELEMENT
-            // ==========================================
+            return;
+        }
 
-            function createPlatformElement(
-                entry
-            ) {
+        if (
+            viewerCounts[
+            platform
+            ] === count
+        ) {
+            return;
+        }
 
-                const fragment =
-                    template.content.cloneNode(
-                        true
-                    );
+        viewerCounts[
+            platform
+        ] = count;
 
-                const base =
-                    fragment.querySelector(
-                        '.platform'
-                    );
+        syncViewerEntries();
+    }
 
-                const icon =
-                    fragment.querySelector(
-                        '.icon'
-                    );
+    // ==========================================
+    // INCOMING DATA
+    // ==========================================
 
-                const views =
-                    fragment.querySelector(
-                        '.views'
-                    );
+    function processIncomingData(
+        raw
+    ) {
 
-                base.dataset.platform =
-                    entry.platform;
+        if (
+            !raw ||
+            typeof raw !==
+            'object'
+        ) {
+            return;
+        }
 
-                base.classList.add(
-                    entry.platform
-                );
+        const possiblePayloads = [
 
-                icon?.classList.add(
-                    entry.platform
-                );
+            raw,
 
-                views.dataset.value =
-                    entry.value;
+            raw.overlayNinja,
 
-                views.textContent =
-                    formatNumberShort(
-                        entry.value
-                    );
+            raw.dataReceived,
 
-                container.appendChild(
-                    base
-                );
+            raw.dataReceived?.overlayNinja,
 
-                elements.set(
-                    entry.platform,
-                    {
-                        base,
-                        views
-                    }
-                );
-            }
+            raw.message,
 
-            // ==========================================
-            // UPDATE ELEMENT
-            // ==========================================
+            raw.payload,
 
-            function updatePlatformElement(
-                entry
-            ) {
+            raw.data
+        ];
 
-                const element =
-                    elements.get(
-                        entry.platform
-                    );
-
-                if (!element) {
-                    createPlatformElement(
-                        entry
-                    );
-                    return;
-                }
-
-                const currentValue =
-                    Number(
-                        element.views.dataset
-                            .value
-                    );
+        possiblePayloads.forEach(
+            payload => {
 
                 if (
-                    currentValue ===
-                    entry.value
-                ) {
-                    return;
-                }
-
-                element.views.dataset.value =
-                    entry.value;
-
-                element.views.textContent =
-                    formatNumberShort(
-                        entry.value
-                    );
-
-                animateUpdate(
-                    element.views
-                );
-            }
-
-            // ==========================================
-            // RENDER
-            // ==========================================
-
-            function render() {
-
-                const entries =
-                    [...state.values()]
-                        .sort(
-                            (a, b) => {
-
-                                if (
-                                    a.order !==
-                                    b.order
-                                ) {
-                                    return (
-                                        a.order -
-                                        b.order
-                                    );
-                                }
-
-                                return (
-                                    a.sequence -
-                                    b.sequence
-                                );
-                            }
-                        );
-
-                entries.forEach(
-                    updatePlatformElement
-                );
-            }
-
-            // ==========================================
-            // PAYLOAD
-            // ==========================================
-
-            function processPayload(data) {
-
-                if (
-                    !data ||
-                    typeof data !==
+                    payload &&
+                    typeof payload ===
                     'object'
-                ) {
-                    return;
-                }
-
-                if (
-                    data.content &&
-                    typeof data.content ===
-                    'object'
-                ) {
-
-                    data = data.content;
-                }
-
-                const eventName =
-                    normalizeEventName(
-                        data.event ||
-                        data.type ||
-                        ''
-                    );
-
-                if (!eventName) {
-                    return;
-                }
-
-                const meta =
-                    data.meta;
-
-                if (
-                    meta === undefined ||
-                    meta === null
-                ) {
-                    return;
-                }
-
-                // ==========================================
-                // SINGLE PLATFORM
-                // ==========================================
-
-                if (
-                    eventName ===
-                    'viewer_update'
-                ) {
-
-                    const platform =
-                        (
-                            data.platform ||
-                            data.type ||
-                            ''
-                        )
-                            .toString()
-                            .toLowerCase();
-
-                    const count =
-                        parseNumber(meta);
-
-                    if (
-                        !platform ||
-                        count === null
-                    ) {
-                        return;
-                    }
-
-                    viewerCounts[
-                        platform
-                    ] = count;
-
-                    syncViewerEntries();
-
-                    return;
-                }
-
-                // ==========================================
-                // MULTIPLE PLATFORMS
-                // ==========================================
-
-                if (
-                    eventName ===
-                    'viewer_updates'
-                ) {
-
-                    if (
-                        !isPlainObject(meta)
-                    ) {
-                        return;
-                    }
-
-                    viewerCounts =
-                        Object.create(null);
-
-                    Object.entries(meta)
-                        .forEach(
-                            ([platform, value]) => {
-
-                                const count =
-                                    parseNumber(
-                                        value
-                                    );
-
-                                if (
-                                    count !==
-                                    null
-                                ) {
-
-                                    viewerCounts[
-                                        platform.toLowerCase()
-                                    ] = count;
-                                }
-                            }
-                        );
-
-                    syncViewerEntries();
-                }
-            }
-
-            // ==========================================
-            // INCOMING DATA
-            // ==========================================
-
-            function processIncomingData(
-                raw
-            ) {
-
-                if (
-                    !raw ||
-                    typeof raw !==
-                    'object'
-                ) {
-                    return;
-                }
-
-                if (
-                    raw.dataReceived
-                        ?.overlayNinja
                 ) {
 
                     processPayload(
-                        raw.dataReceived
-                            .overlayNinja
+                        payload
                     );
-
-                    return;
                 }
-
-                if (
-                    raw.overlayNinja
-                ) {
-
-                    processPayload(
-                        raw.overlayNinja
-                    );
-
-                    return;
-                }
-
-                processPayload(raw);
             }
+        );
+    }
 
-            // ==========================================
-            // IFRAME
-            // ==========================================
+    // ==========================================
+    // IFRAME
+    // ==========================================
 
-            function connectIframe() {
+    function connectIframe() {
 
-                if (
-                    !CONFIG.session ||
-                    CONFIG.hasServerMode
-                ) {
-                    return;
-                }
+        if (
+            !CONFIG.session ||
+            CONFIG.hasServerMode
+        ) {
+            return;
+        }
 
-                const password =
-                    encodeURIComponent(
-                        CONFIG.password
-                    );
+        const password =
+            encodeURIComponent(
+                CONFIG.password
+            );
 
-                const lanOnly =
-                    CONFIG.lanOnly
-                        ? '&lanonly'
-                        : '';
+        const lanOnly =
+            CONFIG.lanOnly
+                ? '&lanonly'
+                : '';
 
-                iframe =
-                    document.createElement(
-                        'iframe'
-                    );
+        iframe =
+            document.createElement(
+                'iframe'
+            );
 
-                iframe.src =
-                    `https://vdo.socialstream.ninja/?ln&salt=vdo.ninja&notmobile&password=${password + lanOnly}&solo&view=${encodeURIComponent(CONFIG.session)}&novideo&noaudio&label=meta&cleanoutput&room=${encodeURIComponent(CONFIG.session)}`;
+        iframe.src =
+            `https://vdo.socialstream.ninja/?clearstorage&ln&salt=vdo.ninja&notmobile&password=${password + lanOnly}&solo&view=${encodeURIComponent(CONFIG.session)}&novideo&noaudio&label=meta&cleanoutput&room=${encodeURIComponent(CONFIG.session)}`;
 
-                iframe.style.cssText = `
+        iframe.style.cssText = `
             width:0;
             height:0;
             position:fixed;
-            left:-100px;
-            top:-100px;
+            left:-9999px;
+            top:-9999px;
             border:0;
             pointer-events:none;
         `;
 
-                document.body.appendChild(
-                    iframe
-                );
+        document.body.appendChild(
+            iframe
+        );
+
+        debug(
+            'Iframe connected'
+        );
+    }
+
+    // ==========================================
+    // SOCKET
+    // ==========================================
+
+    function connectSocket({
+        url,
+        roomId,
+        out,
+        inChannel
+    }) {
+
+        if (
+            !url ||
+            !roomId
+        ) {
+            return;
+        }
+
+        const connection = {
+
+            socket:
+                null,
+
+            timer:
+                null,
+
+            attempts:
+                1,
+
+            closed:
+                false
+        };
+
+        sockets.push(
+            connection
+        );
+
+        function reconnect() {
+
+            if (
+                connection.closed
+            ) {
+                return;
             }
 
-            // ==========================================
-            // SOCKET
-            // ==========================================
+            clearTimeout(
+                connection.timer
+            );
 
-            function connectSocket({
-                url,
-                roomId,
-                out,
-                inChannel
-            }) {
+            const delay =
+                Math.min(
+                    15000,
+                    1000 *
+                    connection.attempts
+                );
 
-                if (
-                    !url ||
-                    !roomId
-                ) {
-                    return;
-                }
+            connection.timer =
+                setTimeout(
+                    connect,
+                    delay
+                );
 
-                const connection = {
-                    socket: null,
-                    timer: null,
-                    attempts: 1,
-                    closed: false
-                };
+            connection.attempts++;
+        }
 
-                sockets.push(connection);
+        function connect() {
 
-                function reconnect() {
+            if (
+                connection.closed
+            ) {
+                return;
+            }
 
-                    if (
-                        connection.closed
-                    ) {
-                        return;
-                    }
+            try {
 
-                    clearTimeout(
-                        connection.timer
+                connection.socket =
+                    new WebSocket(
+                        url
                     );
 
-                    const delay =
-                        Math.min(
-                            12000,
-                            250 *
-                            connection.attempts
-                        );
+            } catch {
 
-                    connection.timer =
-                        setTimeout(
-                            connect,
-                            delay
-                        );
+                reconnect();
+                return;
+            }
 
-                    connection.attempts++;
-                }
+            connection.socket.onopen =
+                () => {
 
-                function connect() {
+                    connection.attempts =
+                        1;
+
+                    connection.socket.send(
+                        JSON.stringify({
+
+                            join:
+                                roomId,
+
+                            out,
+
+                            in:
+                                inChannel
+                        })
+                    );
+                };
+
+            connection.socket.onmessage =
+                event => {
 
                     if (
-                        connection.closed
+                        !event?.data
                     ) {
                         return;
                     }
 
                     try {
 
-                        connection.socket =
-                            new WebSocket(
-                                url
+                        const parsed =
+                            JSON.parse(
+                                event.data
                             );
 
-                    } catch {
+                        processIncomingData(
+                            parsed
+                        );
 
-                        reconnect();
-                        return;
-                    }
-
-                    connection.socket.onopen =
-                        () => {
-
-                            connection.attempts = 1;
+                        if (
+                            parsed?.get
+                        ) {
 
                             connection.socket.send(
                                 JSON.stringify({
-                                    join:
-                                        roomId,
-                                    out,
-                                    in:
-                                        inChannel
+                                    callback: {
+                                        get:
+                                            parsed.get,
+                                        result:
+                                            true
+                                    }
                                 })
                             );
-                        };
+                        }
 
-                    connection.socket.onmessage =
-                        event => {
+                    } catch (
+                        error
+                    ) {
 
-                            if (
-                                !event?.data
-                            ) {
-                                return;
-                            }
+                        debug(
+                            'Socket parse error:',
+                            error
+                        );
+                    }
+                };
 
-                            try {
+            connection.socket.onerror =
+                () => {
 
-                                const parsed =
-                                    JSON.parse(
-                                        event.data
-                                    );
+                    try {
 
-                                processIncomingData(
-                                    parsed
-                                );
+                        connection.socket.close();
 
-                                if (
-                                    parsed?.get
-                                ) {
+                    } catch { }
+                };
 
-                                    connection.socket.send(
-                                        JSON.stringify({
-                                            callback: {
-                                                get:
-                                                    parsed.get,
-                                                result: true
-                                            }
-                                        })
-                                    );
-                                }
+            connection.socket.onclose =
+                reconnect;
+        }
 
-                            } catch { }
-                        };
+        connect();
+    }
 
-                    connection.socket.onerror =
-                        () => {
+    // ==========================================
+    // SERVER MODES
+    // ==========================================
 
-                            try {
+    function connectServerModes() {
 
-                                connection.socket.close();
+        const roomId =
+            CONFIG.session
+                .split(',')[0];
 
-                            } catch { }
-                        };
+        if (!roomId) {
+            return;
+        }
 
-                    connection.socket.onclose =
-                        reconnect;
-                }
+        // API SERVER
 
-                connect();
-            }
+        if (
+            params.has(
+                'server'
+            )
+        ) {
 
-            // ==========================================
-            // SERVER MODES
-            // ==========================================
+            const url =
+                params.get(
+                    'server'
+                ) ||
+                (
+                    params.has(
+                        'localserver'
+                    )
+                        ? 'ws://127.0.0.1:3000'
+                        : 'wss://io.socialstream.ninja/api'
+                );
 
-            function connectServerModes() {
+            connectSocket({
 
-                const roomId =
-                    CONFIG.session
-                        .split(',')[0];
+                url,
 
-                if (!roomId) {
+                roomId,
+
+                out: 2,
+
+                inChannel: 1
+            });
+        }
+
+        // EXTENSION SERVER
+
+        if (
+            params.has(
+                'server2'
+            ) ||
+            params.has(
+                'server3'
+            )
+        ) {
+
+            const url =
+                params.has(
+                    'server2'
+                )
+                    ? (
+                        params.get(
+                            'server2'
+                        ) ||
+                        'wss://io.socialstream.ninja/extension'
+                    )
+                    : (
+                        params.get(
+                            'server3'
+                        ) ||
+                        'wss://io.socialstream.ninja/extension'
+                    );
+
+            connectSocket({
+
+                url,
+
+                roomId,
+
+                out: 3,
+
+                inChannel: 4
+            });
+        }
+    }
+
+    // ==========================================
+    // MESSAGE LISTENER
+    // ==========================================
+
+    window.addEventListener(
+        'message',
+        event => {
+
+            let payload =
+                null;
+
+            if (
+                event?.data
+                    ?.dataReceived
+                    ?.overlayNinja
+            ) {
+
+                if (
+                    iframe &&
+                    event.source !==
+                    iframe.contentWindow
+                ) {
                     return;
                 }
 
-                // API SERVER
-
-                if (
-                    params.has('server')
-                ) {
-
-                    const url =
-                        params.get(
-                            'server'
-                        ) ||
-                        (
-                            params.has(
-                                'localserver'
-                            )
-                                ? 'ws://127.0.0.1:3000'
-                                : 'wss://io.socialstream.ninja/api'
-                        );
-
-                    connectSocket({
-                        url,
-                        roomId,
-                        out: 2,
-                        inChannel: 1
-                    });
-                }
-
-                // EXTENSION SERVER
-
-                if (
-                    params.has(
-                        'server2'
-                    ) ||
-                    params.has(
-                        'server3'
-                    )
-                ) {
-
-                    const url =
-                        params.has(
-                            'server2'
-                        )
-                            ? (
-                                params.get(
-                                    'server2'
-                                ) ||
-                                'wss://io.socialstream.ninja/extension'
-                            )
-                            : (
-                                params.get(
-                                    'server3'
-                                ) ||
-                                'wss://io.socialstream.ninja/extension'
-                            );
-
-                    connectSocket({
-                        url,
-                        roomId,
-                        out: 3,
-                        inChannel: 4
-                    });
-                }
+                payload =
+                    event.data
+                        .dataReceived
+                        .overlayNinja;
             }
 
-            // ==========================================
-            // MESSAGE LISTENER
-            // ==========================================
+            else if (
+                event?.data
+                    ?.overlayNinja
+            ) {
 
-            window.addEventListener(
-                'message',
-                event => {
+                payload =
+                    event.data
+                        .overlayNinja;
+            }
 
-                    let payload =
-                        null;
+            if (payload) {
+
+                processIncomingData(
+                    payload
+                );
+            }
+        }
+    );
+
+    // ==========================================
+    // CLEANUP
+    // ==========================================
+
+    window.addEventListener(
+        'beforeunload',
+        () => {
+
+            sockets.forEach(
+                connection => {
+
+                    connection.closed =
+                        true;
+
+                    clearTimeout(
+                        connection.timer
+                    );
 
                     if (
-                        event?.data
-                            ?.dataReceived
-                            ?.overlayNinja
+                        connection.socket
                     ) {
 
-                        if (
-                            iframe &&
-                            event.source !==
-                            iframe.contentWindow
-                        ) {
-                            return;
-                        }
+                        try {
 
-                        payload =
-                            event.data
-                                .dataReceived
-                                .overlayNinja;
-                    }
+                            connection.socket.onclose =
+                                null;
 
-                    else if (
-                        event?.data
-                            ?.overlayNinja
-                    ) {
+                            connection.socket.close();
 
-                        payload =
-                            event.data
-                                .overlayNinja;
-                    }
-
-                    if (payload) {
-                        processIncomingData(
-                            payload
-                        );
+                        } catch { }
                     }
                 }
             );
+        }
+    );
 
-            // ==========================================
-            // CLEANUP
-            // ==========================================
+    // ==========================================
+    // INIT
+    // ==========================================
 
-            window.addEventListener(
-                'beforeunload',
-                () => {
+    KNOWN_PLATFORMS.forEach(
+        platform => {
 
-                    sockets.forEach(
-                        connection => {
-
-                            connection.closed =
-                                true;
-
-                            clearTimeout(
-                                connection.timer
-                            );
-
-                            if (
-                                connection.socket
-                            ) {
-
-                                try {
-
-                                    connection.socket.onclose =
-                                        null;
-
-                                    connection.socket.close();
-
-                                } catch { }
-                            }
-                        }
-                    );
-                }
+            registerPlatform(
+                platform
             );
+        }
+    );
 
-            // ==========================================
-            // INIT
-            // ==========================================
+    syncViewerEntries();
 
-            render();
+    render();
 
-            connectServerModes();
+    connectServerModes();
 
-            connectIframe();
+    connectIframe();
 
-        })();
+})();
     </script>
 </body>
 
