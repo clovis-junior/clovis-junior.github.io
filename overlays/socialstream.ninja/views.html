@@ -211,26 +211,19 @@
     // ==========================================
 
     const container =
-        document.getElementById(
-            'platform_container'
-        );
+        document.getElementById('platform_container');
 
     const template =
-        document.getElementById(
-            'platform-template'
-        );
+        document.getElementById('platform-template');
 
     const params =
-        new URLSearchParams(
-            window.location.search
-        );
+        new URLSearchParams(window.location.search);
 
     // ==========================================
     // CONFIG
     // ==========================================
 
     const CONFIG = {
-
         session:
             params.get('session') || '',
 
@@ -240,9 +233,6 @@
         lanOnly:
             params.has('lanonly'),
 
-        debug:
-            params.has('debug'),
-
         hasServerMode:
             params.has('server') ||
             params.has('server2') ||
@@ -250,68 +240,41 @@
     };
 
     // ==========================================
-    // CONSTANTS
-    // ==========================================
-
-    const KNOWN_PLATFORMS = [
-        'youtube',
-        'twitch',
-        'kick',
-        'facebook',
-        'tiktok',
-        'trovo'
-    ];
-
-    const PLATFORM_ORDER = {
-        total: 0,
-        twitch: 1,
-        youtube: 2,
-        kick: 3,
-        facebook: 4,
-        tiktok: 5,
-        trovo: 6
-    };
-
-    // ==========================================
     // STATE
     // ==========================================
 
-    const state =
-        new Map();
-
-    const elements =
-        new Map();
-
+    const state = new Map();
+    const elements = new Map();
     const sockets = [];
 
+    let iframe = null;
+    let sequence = 0;
+
+    // viewers atuais
     const viewerCounts =
         Object.create(null);
 
-    const activePlatforms =
-        new Set();
+    // plataformas registradas no SSN
+    // renderizadas imediatamente
+    const registeredPlatforms =
+        [
+            'youtube',
+            'twitch',
+            'kick'
+        ];
 
-    let iframe = null;
-
-    let sequence = 0;
-
-    let renderScheduled =
-        false;
+    // evita duplicação
+    const registeredPlatformMap =
+        new Set(registeredPlatforms);
 
     // ==========================================
     // HELPERS
     // ==========================================
 
-    function debug(...args) {
-
-        if (!CONFIG.debug) {
-            return;
-        }
-
-        console.log(
-            '[Views Overlay]',
-            ...args
+    const wait = ms =>
+        new Promise(resolve =>
+            setTimeout(resolve, ms)
         );
-    }
 
     function parseNumber(value) {
 
@@ -353,12 +316,6 @@
     ) {
 
         number = Number(number);
-
-        if (
-            !Number.isFinite(number)
-        ) {
-            return '0';
-        }
 
         if (number < 1000) {
             return number.toString();
@@ -413,6 +370,80 @@
             );
     }
 
+    function normalizePlatformName(
+        platform
+    ) {
+
+        if (!platform) {
+            return '';
+        }
+
+        platform =
+            platform
+                .toString()
+                .toLowerCase()
+                .trim();
+
+        // YOUTUBE
+
+        if (
+            platform.includes('youtube') ||
+            platform.includes('yt') ||
+            platform.includes('youtubegaming') ||
+            platform.includes('youtubegaming')
+        ) {
+            return 'youtube';
+        }
+
+        // TWITCH
+
+        if (
+            platform.includes('twitch')
+        ) {
+            return 'twitch';
+        }
+
+        // KICK
+
+        if (
+            platform.includes('kick')
+        ) {
+            return 'kick';
+        }
+
+        // FACEBOOK
+
+        if (
+            platform.includes('facebook') ||
+            platform.includes('fb')
+        ) {
+            return 'facebook';
+        }
+
+        // TIKTOK
+
+        if (
+            platform.includes('tiktok') ||
+            platform.includes('tik_tok')
+        ) {
+            return 'tiktok';
+        }
+
+        // TROVO
+
+        if (
+            platform.includes('trovo')
+        ) {
+            return 'trovo';
+        }
+
+        return platform
+            .replace(
+                /[^a-z0-9]/g,
+                ''
+            );
+    }
+
     function isPlainObject(value) {
 
         return (
@@ -422,85 +453,36 @@
         );
     }
 
-    function extractViewerCount(
-        data,
-        meta
-    ) {
-
-        let count =
-            parseNumber(meta);
-
-        if (count !== null) {
-            return count;
-        }
-
-        if (
-            meta &&
-            typeof meta === 'object'
-        ) {
-
-            count =
-                parseNumber(
-                    meta.viewers ??
-                    meta.viewerCount ??
-                    meta.viewer_count ??
-                    meta.concurrentViewers ??
-                    meta.participants ??
-                    meta.audience ??
-                    meta.watchers ??
-                    meta.count
-                );
-
-            if (count !== null) {
-                return count;
-            }
-        }
-
-        count =
-            parseNumber(
-                data.viewers ??
-                data.viewerCount ??
-                data.viewer_count ??
-                data.concurrentViewers ??
-                data.watchers ??
-                data.count
-            );
-
-        return count;
-    }
-
     // ==========================================
-    // PLATFORM
+    // PLATFORM REGISTRATION
     // ==========================================
 
     function registerPlatform(
         platform
     ) {
 
+        platform =
+            normalizePlatformName(
+                platform
+            );
+
         if (!platform) {
             return;
         }
 
-        platform =
-            platform.toLowerCase();
-
         if (
-            !KNOWN_PLATFORMS.includes(
+            registeredPlatformMap.has(
                 platform
             )
         ) {
             return;
         }
 
-        if (
-            activePlatforms.has(
-                platform
-            )
-        ) {
-            return;
-        }
+        registeredPlatformMap.add(
+            platform
+        );
 
-        activePlatforms.add(
+        registeredPlatforms.push(
             platform
         );
 
@@ -509,18 +491,91 @@
             platform
             ] === undefined
         ) {
-
             viewerCounts[
                 platform
             ] = 0;
         }
+    }
 
-        debug(
-            'Platform registered:',
-            platform
+    function registerPlatformsFromPayload(
+        data
+    ) {
+
+        const possiblePlatforms = [];
+
+        if (data.platform) {
+            possiblePlatforms.push(
+                data.platform
+            );
+        }
+
+        if (data.type) {
+            possiblePlatforms.push(
+                data.type
+            );
+        }
+
+        if (
+            isPlainObject(data.meta)
+        ) {
+
+            Object.keys(data.meta)
+                .forEach(platform => {
+                    possiblePlatforms.push(
+                        platform
+                    );
+                });
+        }
+
+        // procura em arrays vindos do SSN
+
+        const sourceArrays = [
+            data.sources,
+            data.accounts,
+            data.channels,
+            data.destinations
+        ];
+
+        sourceArrays.forEach(array => {
+
+            if (!Array.isArray(array)) {
+                return;
+            }
+
+            array.forEach(item => {
+
+                if (
+                    typeof item === 'string'
+                ) {
+                    possiblePlatforms.push(
+                        item
+                    );
+                    return;
+                }
+
+                if (
+                    typeof item === 'object' &&
+                    item
+                ) {
+
+                    possiblePlatforms.push(
+                        item.type
+                    );
+
+                    possiblePlatforms.push(
+                        item.platform
+                    );
+
+                    possiblePlatforms.push(
+                        item.name
+                    );
+                }
+            });
+        });
+
+        possiblePlatforms.forEach(
+            registerPlatform
         );
-
-        syncViewerEntries();
     }
 
     // ==========================================
@@ -531,7 +586,8 @@
         id,
         platform,
         value,
-        label
+        label,
+        order
     }) {
 
         if (!id) {
@@ -542,20 +598,11 @@
             state.get(id);
 
         state.set(id, {
-
             id,
-
             platform,
-
             value,
-
             label,
-
-            order:
-                PLATFORM_ORDER[
-                platform
-                ] ?? 999,
-
+            order,
             sequence:
                 existing?.sequence ??
                 ++sequence
@@ -570,24 +617,32 @@
 
         let total = 0;
 
-        Object.entries(
-            viewerCounts
-        ).forEach(
-            ([platform, count]) => {
+        // TOTAL sempre primeiro
+
+        setEntry({
+            id: 'viewer-total',
+            platform: 'total',
+            label: 'Total Viewers',
+            value: 0,
+            order: 0
+        });
+
+        registeredPlatforms.forEach(
+            (
+                platform,
+                index
+            ) => {
 
                 const numeric =
-                    parseNumber(count);
-
-                if (
-                    numeric === null
-                ) {
-                    return;
-                }
+                    parseNumber(
+                        viewerCounts[
+                        platform
+                        ] ?? 0
+                    ) ?? 0;
 
                 total += numeric;
 
                 setEntry({
-
                     id:
                         `viewer-${platform}`,
 
@@ -596,52 +651,57 @@
                     label:
                         `${platform.toUpperCase()} Viewers`,
 
-                    value:
-                        numeric
+                    value: numeric,
+
+                    // ordem exata do SSN
+                    order:
+                        index + 1
                 });
             }
         );
 
-        setEntry({
+        // atualiza total
 
-            id:
-                'viewer-total',
+        const totalEntry =
+            state.get(
+                'viewer-total'
+            );
 
-            platform:
-                'total',
-
-            label:
-                'Total Viewers',
-
-            value:
-                total
-        });
-
-        scheduleRender();
-    }
-
-    // ==========================================
-    // RENDER
-    // ==========================================
-
-    function scheduleRender() {
-
-        if (renderScheduled) {
-            return;
+        if (totalEntry) {
+            totalEntry.value = total;
         }
 
-        renderScheduled = true;
+        render();
+    }
 
-        requestAnimationFrame(
-            () => {
+    // ==========================================
+    // ANIMATION
+    // ==========================================
 
-                renderScheduled =
-                    false;
+    async function animateUpdate(
+        element
+    ) {
 
-                render();
-            }
+        element.classList.remove(
+            'animate-pop'
+        );
+
+        void element.offsetWidth;
+
+        element.classList.add(
+            'animate-pop'
+        );
+
+        await wait(400);
+
+        element.classList.remove(
+            'animate-pop'
         );
     }
+
+    // ==========================================
+    // CREATE ELEMENT
+    // ==========================================
 
     function createPlatformElement(
         entry
@@ -670,9 +730,6 @@
         base.dataset.platform =
             entry.platform;
 
-        base.dataset.id =
-            entry.id;
-
         base.classList.add(
             entry.platform
         );
@@ -694,7 +751,7 @@
         );
 
         elements.set(
-            entry.id,
+            entry.platform,
             {
                 base,
                 views
@@ -702,53 +759,24 @@
         );
     }
 
-    function animateUpdate(
-        element
-    ) {
-
-        element.classList.remove(
-            'animate-pop'
-        );
-
-        void element.offsetWidth;
-
-        element.classList.add(
-            'animate-pop'
-        );
-
-        clearTimeout(
-            element._animationTimeout
-        );
-
-        element._animationTimeout =
-            setTimeout(() => {
-
-                element.classList.remove(
-                    'animate-pop'
-                );
-
-            }, 400);
-    }
+    // ==========================================
+    // UPDATE ELEMENT
+    // ==========================================
 
     function updatePlatformElement(
         entry
     ) {
 
-        let element =
+        const element =
             elements.get(
-                entry.id
+                entry.platform
             );
 
         if (!element) {
-
             createPlatformElement(
                 entry
             );
-
-            element =
-                elements.get(
-                    entry.id
-                );
+            return;
         }
 
         const currentValue =
@@ -777,6 +805,10 @@
         );
     }
 
+    // ==========================================
+    // RENDER
+    // ==========================================
+
     function render() {
 
         const entries =
@@ -801,9 +833,29 @@
                     }
                 );
 
+        // renderiza tudo primeiro
+
         entries.forEach(
             updatePlatformElement
         );
+
+        // reorganiza DOM
+
+        entries.forEach(entry => {
+
+            const element =
+                elements.get(
+                    entry.platform
+                );
+
+            if (
+                element?.base
+            ) {
+                container.appendChild(
+                    element.base
+                );
+            }
+        });
     }
 
     // ==========================================
@@ -826,19 +878,14 @@
             'object'
         ) {
 
-            data =
-                data.content;
+            data = data.content;
         }
 
-        const platform =
-            (
-                data.platform ||
-                data.type ||
-                data.event ||
-                ''
-            )
-                .toString()
-                .toLowerCase();
+        // registra plataformas detectadas
+
+        registerPlatformsFromPayload(
+            data
+        );
 
         const eventName =
             normalizeEventName(
@@ -850,32 +897,49 @@
         const meta =
             data.meta;
 
-        debug(
-            'Payload:',
-            {
-                platform,
-                eventName,
-                data
-            }
-        );
-
         // ==========================================
-        // REGISTER PLATFORM
+        // SINGLE PLATFORM
         // ==========================================
 
         if (
-            KNOWN_PLATFORMS.includes(
-                platform
-            )
+            eventName ===
+            'viewer_update'
         ) {
+
+            const platform =
+                normalizePlatformName(
+                    data.platform ||
+                    data.type ||
+                    ''
+                );
+
+            const count =
+                parseNumber(meta);
+
+            if (
+                !platform ||
+                count === null
+            ) {
+                return;
+            }
 
             registerPlatform(
                 platform
             );
+
+            // soma múltiplas lives da mesma plataforma
+
+            viewerCounts[
+                platform
+            ] = count;
+
+            syncViewerEntries();
+
+            return;
         }
 
         // ==========================================
-        // MULTI VIEWERS
+        // MULTIPLE PLATFORMS
         // ==========================================
 
         if (
@@ -886,22 +950,28 @@
             if (
                 !isPlainObject(meta)
             ) {
+                syncViewerEntries();
                 return;
             }
 
-            let changed =
-                false;
+            // reset apenas das plataformas conhecidas
+
+            registeredPlatforms.forEach(
+                platform => {
+                    viewerCounts[
+                        platform
+                    ] = 0;
+                }
+            );
 
             Object.entries(meta)
                 .forEach(
                     ([platform, value]) => {
 
                         platform =
-                            platform.toLowerCase();
-
-                        registerPlatform(
-                            platform
-                        );
+                            normalizePlatformName(
+                                platform
+                            );
 
                         const count =
                             parseNumber(
@@ -909,85 +979,33 @@
                             );
 
                         if (
+                            !platform ||
                             count === null
                         ) {
                             return;
                         }
 
-                        if (
-                            viewerCounts[
+                        registerPlatform(
                             platform
-                            ] === count
-                        ) {
-                            return;
-                        }
+                        );
+
+                        // soma múltiplas entradas
 
                         viewerCounts[
                             platform
-                            ] = count;
-
-                        changed = true;
+                        ] =
+                            (
+                                viewerCounts[
+                                platform
+                                ] || 0
+                            ) + count;
                     }
                 );
 
-            if (changed) {
-                syncViewerEntries();
-            }
-
-            return;
+            syncViewerEntries();
         }
 
-        // ==========================================
-        // SINGLE PLATFORM
-        // ==========================================
-
-        if (
-            !KNOWN_PLATFORMS.includes(
-                platform
-            )
-        ) {
-            return;
-        }
-
-        const count =
-            extractViewerCount(
-                data,
-                meta
-            );
-
-        // plataforma ativa
-        // mas offline
-        if (
-            count === null
-        ) {
-
-            if (
-                viewerCounts[
-                platform
-                ] === undefined
-            ) {
-
-                viewerCounts[
-                    platform
-                ] = 0;
-
-                syncViewerEntries();
-            }
-
-            return;
-        }
-
-        if (
-            viewerCounts[
-            platform
-            ] === count
-        ) {
-            return;
-        }
-
-        viewerCounts[
-            platform
-        ] = count;
+        // fallback
 
         syncViewerEntries();
     }
@@ -1008,38 +1026,31 @@
             return;
         }
 
-        const possiblePayloads = [
+        if (
+            raw.dataReceived
+                ?.overlayNinja
+        ) {
 
-            raw,
+            processPayload(
+                raw.dataReceived
+                    .overlayNinja
+            );
 
-            raw.overlayNinja,
+            return;
+        }
 
-            raw.dataReceived,
+        if (
+            raw.overlayNinja
+        ) {
 
-            raw.dataReceived?.overlayNinja,
+            processPayload(
+                raw.overlayNinja
+            );
 
-            raw.message,
+            return;
+        }
 
-            raw.payload,
-
-            raw.data
-        ];
-
-        possiblePayloads.forEach(
-            payload => {
-
-                if (
-                    payload &&
-                    typeof payload ===
-                    'object'
-                ) {
-
-                    processPayload(
-                        payload
-                    );
-                }
-            }
-        );
+        processPayload(raw);
     }
 
     // ==========================================
@@ -1071,24 +1082,20 @@
             );
 
         iframe.src =
-            `https://vdo.socialstream.ninja/?clearstorage&ln&salt=vdo.ninja&notmobile&password=${password + lanOnly}&solo&view=${encodeURIComponent(CONFIG.session)}&novideo&noaudio&label=meta&cleanoutput&room=${encodeURIComponent(CONFIG.session)}`;
+            `https://vdo.socialstream.ninja/?ln&salt=vdo.ninja&notmobile&password=${password + lanOnly}&solo&view=${encodeURIComponent(CONFIG.session)}&novideo&noaudio&label=meta&cleanoutput&room=${encodeURIComponent(CONFIG.session)}`;
 
         iframe.style.cssText = `
             width:0;
             height:0;
             position:fixed;
-            left:-9999px;
-            top:-9999px;
+            left:-100px;
+            top:-100px;
             border:0;
             pointer-events:none;
         `;
 
         document.body.appendChild(
             iframe
-        );
-
-        debug(
-            'Iframe connected'
         );
     }
 
@@ -1111,23 +1118,13 @@
         }
 
         const connection = {
-
-            socket:
-                null,
-
-            timer:
-                null,
-
-            attempts:
-                1,
-
-            closed:
-                false
+            socket: null,
+            timer: null,
+            attempts: 1,
+            closed: false
         };
 
-        sockets.push(
-            connection
-        );
+        sockets.push(connection);
 
         function reconnect() {
 
@@ -1143,8 +1140,8 @@
 
             const delay =
                 Math.min(
-                    15000,
-                    1000 *
+                    12000,
+                    250 *
                     connection.attempts
                 );
 
@@ -1181,17 +1178,13 @@
             connection.socket.onopen =
                 () => {
 
-                    connection.attempts =
-                        1;
+                    connection.attempts = 1;
 
                     connection.socket.send(
                         JSON.stringify({
-
                             join:
                                 roomId,
-
                             out,
-
                             in:
                                 inChannel
                         })
@@ -1227,22 +1220,13 @@
                                     callback: {
                                         get:
                                             parsed.get,
-                                        result:
-                                            true
+                                        result: true
                                     }
                                 })
                             );
                         }
 
-                    } catch (
-                        error
-                    ) {
-
-                        debug(
-                            'Socket parse error:',
-                            error
-                        );
-                    }
+                    } catch { }
                 };
 
             connection.socket.onerror =
@@ -1279,9 +1263,7 @@
         // API SERVER
 
         if (
-            params.has(
-                'server'
-            )
+            params.has('server')
         ) {
 
             const url =
@@ -1297,13 +1279,9 @@
                 );
 
             connectSocket({
-
                 url,
-
                 roomId,
-
                 out: 2,
-
                 inChannel: 1
             });
         }
@@ -1337,13 +1315,9 @@
                     );
 
             connectSocket({
-
                 url,
-
                 roomId,
-
                 out: 3,
-
                 inChannel: 4
             });
         }
@@ -1391,7 +1365,6 @@
             }
 
             if (payload) {
-
                 processIncomingData(
                     payload
                 );
@@ -1439,18 +1412,15 @@
     // INIT
     // ==========================================
 
-    // KNOWN_PLATFORMS.forEach(
-    //     platform => {
+    // render inicial completo
 
-    //         registerPlatform(
-    //             platform
-    //         );
-    //     }
-    // );
+    registeredPlatforms.forEach(
+        platform => {
+            viewerCounts[platform] = 0;
+        }
+    );
 
     syncViewerEntries();
-
-    render();
 
     connectServerModes();
 
