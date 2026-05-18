@@ -320,7 +320,9 @@
             // ==========================================
 
             const urlParams =
-                new URLSearchParams(window.location.search);
+                new URLSearchParams(
+                    window.location.search.toLowerCase()
+                );
 
             const CONFIG = {
                 roomID:
