@@ -115,22 +115,18 @@
             justify-content: center;
             align-items: center;
             gap: 15px;
-            border-radius: 5px;
             line-height: calc(var(--badge-size) * 2);
             background-color: transparent;
-            box-shadow: 0 0 1rem rgba(249, 250, 251, .33) inset;
-            margin-left: 5px;
-            transform: scale(.75);
+            transform: scale(.9);
         }
 
         .chat-user-badges:not(:empty) {
-            border: 1px solid #64748b;
             padding: 0 15px;
         }
 
         .chat-user-badges>* {
-            width: var(--badge-size);
-            height: var(--badge-size);
+            min-width: var(--badge-size);
+            max-height: var(--badge-size);
             display: block;
             object-fit: cover;
         }
