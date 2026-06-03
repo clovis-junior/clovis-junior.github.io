@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html>
-
 <head>
     <meta name="referrer" content="no-referrer-when-downgrade">
     <style>
@@ -24,7 +23,6 @@
 
 <body>
     <div id="player"></div>
-
     <script>
         const ID_DA_PLAYLIST = 'PLYOh6BrIuxvqQqcBTTPcOmEMzN-hLfAU-'; 
         const TOTAL_DE_VIDEOS = 14;
@@ -46,11 +44,16 @@
                 playerVars: {
                     'listType': 'playlist',
                     'list': ID_DA_PLAYLIST,
-                    'index': indiceAleatorio, // Inicia no vídeo sorteado
+                    'index': indiceAleatorio,
                     'autoplay': 1,
                     'mute': 0,
-                    'controls': 1,
-                    'origin': 'https://www.youtube.com' // Autentica a requisição para arquivos locais
+                    'controls': 0,
+                    'disablekb': 1,
+                    'fs': 0,
+                    'modestbranding': 1,
+                    'iv_load_policy': 3,
+                    'rel': 0,
+                    'origin': window.location.origin
                 },
                 events: {
                     'onReady': onPlayerReady
@@ -71,5 +74,4 @@
         }
     </script>
 </body>
-
 </html>
