@@ -1,77 +1,73 @@
 <!DOCTYPE html>
 <html>
-<head>
-    <meta name="referrer" content="no-referrer-when-downgrade">
-    <style>
-        body,
-        html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            background-color: #000;
-        }
+    <head>
+        <meta name="referrer" content="no-referrer-when-downgrade">
+        <style>
+            body,
+            html {
+                margin: 0;
+                padding: 0;
+                width: 100%;
+                height: 100%;
+                overflow: hidden;
+                background-color: #000
+            }
 
-        #player {
-            width: 100%;
-            height: 100%;
-            border: none;
-        }
-    </style>
-</head>
+            #player {
+                width: 100%;
+                height: 100%;
+                border: none
+            }
+        </style>
+    </head>
 
-<body>
-    <div id="player"></div>
-    <script>
-        const ID_DA_PLAYLIST = 'PLYOh6BrIuxvqQqcBTTPcOmEMzN-hLfAU-'; 
-        const TOTAL_DE_VIDEOS = 14;
+    <body>
+        <div id="player"></div>
+        <script>
+            const ID_DA_PLAYLIST = 'PLYOh6BrIuxvqQqcBTTPcOmEMzN-hLfAU-'; 
+            const TOTAL_DE_VIDEOS = 14;
 
-        // 1. Injeta a API de Iframe do YouTube com a sintaxe correta do DOM
-        var tag = document.createElement('script');
-        tag.src = "https://www.youtube.com/iframe_api"; 
-        var firstScriptTag = document.getElementsByTagName('script')[0]; // <-- Corrigido: adicionado o [0]
-        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+            var tag = document.createElement('script');
+            tag.src = 'https://www.youtube.com/iframe_api'; 
 
-        var player;
-        function onYouTubeIframeAPIReady() {
-            // Sorteia um índice aleatório baseado no seu total de 14 vídeos
-            const indiceAleatorio = Math.floor(Math.random() * TOTAL_DE_VIDEOS);
+            var firstScriptTag = document.getElementsByTagName('script')[0];
+            firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
 
-            player = new YT.Player('player', {
-                height: '100%',
-                width: '100%',
-                playerVars: {
-                    'listType': 'playlist',
-                    'list': ID_DA_PLAYLIST,
-                    'index': indiceAleatorio,
-                    'autoplay': 1,
-                    'mute': 0,
-                    'controls': 0,
-                    'disablekb': 1,
-                    'fs': 0,
-                    'modestbranding': 1,
-                    'iv_load_policy': 3,
-                    'rel': 0,
-                    'origin': window.location.origin
-                },
-                events: {
-                    'onReady': onPlayerReady
-                }
-            });
-        }
+            var player;
+            function onYouTubeIframeAPIReady() {
+                const indiceAleatorio = Math.floor(Math.random() * TOTAL_DE_VIDEOS);
 
-        function onPlayerReady(event) {
-            // Força a reprodução do vídeo sorteado
-            event.target.playVideo();
-            
-            // Ativa o modo aleatório (Shuffle) para o restante da fila após 1.5 segundos
-            setTimeout(function () {
-                if (player && typeof player.setShuffle === 'function') {
-                    player.setShuffle(true);
-                }
-            }, 1500);
-        }
-    </script>
-</body>
+                player = new YT.Player('player', {
+                    height: '100%',
+                    width: '100%',
+                    playerVars: {
+                        'listType': 'playlist',
+                        'list': ID_DA_PLAYLIST,
+                        'index': indiceAleatorio,
+                        'autoplay': 1,
+                        'mute': 0,
+                        'controls': 0,
+                        'disablekb': 1,
+                        'fs': 0,
+                        'modestbranding': 1,
+                        'iv_load_policy': 3,
+                        'rel': 0,
+                        'origin': 'https://www.youtube.com'
+                    },
+                    events: {
+                        'onReady': onPlayerReady
+                    }
+                });
+            }
+
+            function onPlayerReady(event) {
+                event.target.playVideo();
+
+                setTimeout(function () {
+                    if (player && typeof player.setShuffle === 'function')
+                        player.setShuffle(true);
+                }, 1500)
+            }
+        </script>
+    </body>
 </html>
