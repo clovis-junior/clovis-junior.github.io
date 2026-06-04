@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt-br">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -38,6 +39,7 @@
         }
     </style>
 </head>
+
 <body>
     <div id="player"></div>
     <script type="text/javascript" defer>
@@ -47,9 +49,9 @@
             const params = new URLSearchParams(window.location.search);
             const PLAYLIST_ID = params.get('id') || '';
 
+            // Injeta a API do YouTube de forma segura
             var tag = document.createElement('script');
-            tag.src = 'https://www.youtube.com/iframe_api';
-
+            tag.src = 'https://youtube.com';
             var firstScriptTag = document.getElementsByTagName('script')[0];
             firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
 
@@ -62,7 +64,7 @@
                         'listType': 'playlist',
                         'list': PLAYLIST_ID,
                         'autoplay': 1,
-                        'mute': 0,
+                        'mute': 1,
                         'controls': 0,
                         'disablekb': 1,
                         'fs': 0,
@@ -75,25 +77,28 @@
                     events: {
                         'onReady': onPlayerReady
                     }
-                });
+                })
             }
 
             function onPlayerReady(event) {
                 event.target.playVideo();
 
                 setTimeout(function () {
-                    if (player && typeof player.setShuffle === 'function') {
-                        // Embaralha a playlist inteira internamente
-                        player.setShuffle(true);
-                        
-                        // Pula imediatamente para o primeiro vídeo da lista que foi misturada
-                        if (typeof player.nextVideo === 'function') {
-                            player.nextVideo();
+                    if (player) {
+                        if (typeof player.unMute === 'function')
+                            player.unMute();
+
+                        if (typeof player.setShuffle === 'function') {
+                            player.setShuffle(true);
+
+                            if (typeof player.nextVideo === 'function')
+                                player.nextVideo();
                         }
                     }
-                }, 1000);
+                }, 1200)
             }
-        })();
+        })()
     </script>
 </body>
+
 </html>
