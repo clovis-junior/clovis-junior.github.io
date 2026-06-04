@@ -1,49 +1,66 @@
 <!DOCTYPE html>
-<html>
-    <head>
-        <meta name="referrer" content="no-referrer-when-downgrade">
-        <style>
-            body,
-            html {
-                margin: 0;
-                padding: 0;
-                width: 100%;
-                height: 100%;
-                overflow: hidden;
-                background-color: #000
-            }
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rerun Overlay</title>
+    <style type="text/css">
+        *,
+        *:after,
+        *:before {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box
+        }
 
-            #player {
-                width: 100%;
-                height: 100%;
-                border: none
-            }
-        </style>
-    </head>
+        * {
+            outline: 0;
+            border: none;
+            font-family: inherit;
+            font-size: 100%;
+            background: transparent;
+            vertical-align: baseline
+        }
 
-    <body>
-        <div id="player"></div>
-        <script>
-            const ID_DA_PLAYLIST = 'PLYOh6BrIuxvqQqcBTTPcOmEMzN-hLfAU-'; 
-            const TOTAL_DE_VIDEOS = 14;
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #player {
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+        }
+    </style>
+</head>
+<body>
+    <div id="player"></div>
+    <script type="text/javascript" defer>
+        (() => {
+            'use strict';
+
+            const params = new URLSearchParams(window.location.search);
+            const PLAYLIST_ID = params.get('id') || '';
 
             var tag = document.createElement('script');
-            tag.src = 'https://www.youtube.com/iframe_api'; 
+            tag.src = 'https://www.youtube.com/iframe_api';
 
             var firstScriptTag = document.getElementsByTagName('script')[0];
             firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
 
             var player;
-            function onYouTubeIframeAPIReady() {
-                const indiceAleatorio = Math.floor(Math.random() * TOTAL_DE_VIDEOS);
-
+            window.onYouTubeIframeAPIReady = function () {
                 player = new YT.Player('player', {
                     height: '100%',
                     width: '100%',
                     playerVars: {
                         'listType': 'playlist',
-                        'list': ID_DA_PLAYLIST,
-                        'index': indiceAleatorio,
+                        'list': PLAYLIST_ID,
                         'autoplay': 1,
                         'mute': 0,
                         'controls': 0,
@@ -53,7 +70,7 @@
                         'iv_load_policy': 3,
                         'rel': 0,
                         'suggestedQuality': 'hd1080',
-                        'origin': 'https://www.youtube.com'
+                        'origin': window.location.origin
                     },
                     events: {
                         'onReady': onPlayerReady
@@ -65,10 +82,18 @@
                 event.target.playVideo();
 
                 setTimeout(function () {
-                    if (player && typeof player.setShuffle === 'function')
+                    if (player && typeof player.setShuffle === 'function') {
+                        // Embaralha a playlist inteira internamente
                         player.setShuffle(true);
-                }, 1500)
+                        
+                        // Pula imediatamente para o primeiro vídeo da lista que foi misturada
+                        if (typeof player.nextVideo === 'function') {
+                            player.nextVideo();
+                        }
+                    }
+                }, 1000);
             }
-        </script>
-    </body>
+        })();
+    </script>
+</body>
 </html>
