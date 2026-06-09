@@ -45,7 +45,6 @@
 
         figure {
             max-width: 100%;
-            margin-bottom: 1rem;
         }
 
         img {
@@ -55,18 +54,29 @@
         }
 
         b, strong {
+            font-weight: 800;
             color: #3a82f6;
+        }
+
+        h3 {
+            max-width: 100%;
+            display: block;
+            overflow: hidden;
+            padding: 1rem;
+            line-height: 130%;
+            font-weight: 500;
+            font-style: italic;
+            text-overflow: ellipsis;
         }
 
         main {
             pointer-events: none;
-            max-width: 100%;
+            max-width: calc(100% - 5rem);
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             margin: 0 auto;
-            padding: 1rem;
             font-size: 2rem;
             text-align: center;
             -webkit-user-select: none;
