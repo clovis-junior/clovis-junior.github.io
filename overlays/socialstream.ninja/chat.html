@@ -123,14 +123,19 @@
             padding: 0 15px;
         }
 
-        .chat-user-badges>* {
-            min-width: var(--badge-size);
-            max-height: var(--badge-size);
-            display: block;
+        .chat-user-badges>img {
             object-fit: cover;
         }
 
-        .source {
+        .chat-user-badges>img,
+        .chat-user-badges>.source {
+            min-width: var(--badge-size);
+            min-height: var(--badge-size);
+            max-height: var(--badge-size);
+            display: block;
+        }
+
+         .chat-user-badges>.source {
             mask-repeat: no-repeat;
             mask-position: center;
             mask-size: var(--badge-size);
@@ -139,32 +144,32 @@
             -webkit-mask-size: var(--badge-size);
         }
 
-        .source.twitch {
+         .chat-user-badges>.source.twitch {
             background-color: #6441a5;
             mask-image: url('https://i.imgur.com/DnG97p5.png');
             -webkit-mask-image: url('https://i.imgur.com/DnG97p5.png');
         }
 
-        .source.facebook {
+         .chat-user-badges>.source.facebook {
             background-color: #005FED;
             mask-image: url('https://i.imgur.com/t8pQUvH.png');
             -webkit-mask-image: url('https://i.imgur.com/t8pQUvH.png');
         }
 
-        .source.youtube,
-        .source.youtubeshorts {
+         .chat-user-badges>.source.youtube,
+         .chat-user-badges>.source.youtubeshorts {
             background-color: #f80231;
             mask-image: url('https://i.imgur.com/PCyzV61.png');
             -webkit-mask-image: url('https://i.imgur.com/PCyzV61.png');
         }
 
-        .source.kick {
+         .chat-user-badges>.source.kick {
             background-color: #00e701;
             mask-image: url('https://i.imgur.com/GONwTVy.png');
             -webkit-mask-image: url('https://i.imgur.com/GONwTVy.png');
         }
 
-        .source.tiktok {
+         .chat-user-badges>.source.tiktok {
             background-color: #2af0ea;
             mask-image: url('https://i.imgur.com/paZ8nLv.png');
             -webkit-mask-image: url('https://i.imgur.com/paZ8nLv.png');
@@ -615,9 +620,8 @@
 
             function createSource(platform) {
 
-                if (!platform) {
+                if (!platform)
                     return null;
-                }
 
                 return createElement(
                     'span',
@@ -631,9 +635,8 @@
 
             function removeMessage(messageElement) {
 
-                if (!messageElement?.parentNode) {
+                if (!messageElement?.parentNode)
                     return;
-                }
 
                 const messageId =
                     messageElement.id;
@@ -659,9 +662,8 @@
 
             async function addMessageToOverlay(data) {
 
-                if (!data) {
+                if (!data)
                     return;
-                }
 
                 const {
                     chatname,
@@ -689,16 +691,14 @@
                     !chatmessage ||
                     hasDonation ||
                     donation
-                ) {
+                )
                     return;
-                }
 
                 if (
                     CONFIG.hideCommands &&
                     chatmessage.startsWith('!')
-                ) {
+                )
                     return;
-                }
 
                 // ==========================================
                 // TEMPLATE
@@ -754,9 +754,8 @@
                     const source =
                         createSource(type);
 
-                    if (source) {
+                    if (source)
                         badgesContainer.appendChild(source);
-                    }
                 }
 
                 // ==========================================
