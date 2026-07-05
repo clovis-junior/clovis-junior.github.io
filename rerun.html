@@ -44,7 +44,8 @@
             'use strict';
 
             const params = new URLSearchParams(window.location.search);
-            const PLAYLIST_ID = params.get('id') || '';
+            const PLAYLIST_ID = params.get('playlist_id') || '';
+            const VIDEO_ID = params.get('video_id') || '';
 
             var tag = document.createElement('script');
             tag.src = 'https://www.youtube.com/iframe_api';
@@ -56,6 +57,7 @@
                 player = new YT.Player('player', {
                     height: '100%',
                     width: '100%',
+                    videoId: VIDEO_ID,
                     playerVars: {
                         'listType': 'playlist',
                         'list': PLAYLIST_ID,
