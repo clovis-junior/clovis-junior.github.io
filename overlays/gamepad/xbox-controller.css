@@ -1,0 +1,8 @@
+.controller.xbox {
+  background: url('https://i.imgur.com/CqMM3GW.png') !important;
+  background-size: contain;
+}
+
+.xbox .quadrant {
+	display: none !important;
+}
