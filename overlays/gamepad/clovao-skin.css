@@ -4,18 +4,24 @@
 	background-size: contain !important;
 }
 
-.xbox:not(.disconnected) {
-	background-image: url('https://i.imgur.com/kSCUhB3.png') !important;
+.quadrant {
+	display: none !important;
 }
 
-.xbox .button {
-    background-image: url('https://i.imgur.com/96AHwz3.png') !important;
+.xbox:not(.disconnected) {
+	background-image: url('https://i.imgur.com/kSCUhB3.png') !important;
 }
 
 .xbox.disconnected {
 	background-image: unset !important;
 }
 
-.quadrant {
-	display: none !important;
+.xbox .stick {
+	width: 84px !important;
+	height: 83px !important;
+	background-image: url(https://i.imgur.com/J9OZnQi.png) !important;
+}
+
+.xbox .button {
+    background-image: url('https://i.imgur.com/96AHwz3.png') !important;
 }
