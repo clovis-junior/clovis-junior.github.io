@@ -19,9 +19,30 @@
 .xbox .stick {
 	width: 84px !important;
 	height: 83px !important;
-	background-image: url(https://i.imgur.com/J9OZnQi.png) !important;
+	background-image: url('https://i.imgur.com/J9OZnQi.png') !important;
 }
 
 .xbox .button {
-    background-image: url('https://i.imgur.com/96AHwz3.png') !important;
+	background-image: url('https://i.imgur.com/96AHwz3.png') !important;
+}
+
+.xbox .button.pressed {
+   margin-top: unset !important;
+}
+
+.xbox .a {
+	left: 55px !important;
+	top: 112px !important;
+}
+.xbox .b {
+	right: -2px !important;
+	top: 62px !important;
+}
+.xbox .x {
+	left: 4px !important;
+	top: 62px !important;
+}
+.xbox .y {
+	left: 55px !important;
+	top: 12px !important;
 }
