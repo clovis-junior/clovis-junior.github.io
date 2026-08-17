@@ -23,6 +23,8 @@
 }
 
 .xbox .button {
+	width: 49px !important;
+    height: 49px !important;
 	background-image: url('https://i.imgur.com/96AHwz3.png') !important;
 }
 
