@@ -1,5 +1,4 @@
-.controller,
-.xbox .button {
+.controller {
 	background-position: center center !important;
 	background-repeat: no-repeat !important;
 	background-size: contain !important;
@@ -10,7 +9,7 @@
 }
 
 .xbox .button {
-    background: url('https://i.imgur.com/X0ym4xp.png') !important;
+    background-image: url('https://i.imgur.com/96AHwz3.png') !important;
 }
 
 .xbox.disconnected {
