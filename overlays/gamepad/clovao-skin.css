@@ -20,12 +20,19 @@
 	width: 84px !important;
 	height: 83px !important;
 	background-image: url('https://i.imgur.com/J9OZnQi.png') !important;
+	transition: transform 500ms linear !important;
 }
 
 .xbox .button {
 	width: 49px !important;
-    height: 49px !important;
+  height: 49px !important;
 	background-image: url('https://i.imgur.com/96AHwz3.png') !important;
+	transition: opacity 500ms ease-out, transform 500ms ease-out, filter 500ms ease-out  !important;
+}
+
+.xbox .face,
+.xbox .button {
+	transition: opacity 500ms ease-out, transform 500ms ease-out, filter 500ms ease-out  !important;
 }
 
 .xbox .button.pressed {
