@@ -12,8 +12,26 @@
 	display: none !important;
 }
 
-.controller.fight-stick {
-    background-image: url('https://i.imgur.com/8tePulR.png') !important;
+.fight-stick:not(.disconnected) {
+  background-image: url('https://i.imgur.com/8tePulR.png') !important;
+}
+
+.fight-stick .arrows {
+	left: 47px !important;
+  top: 53px !important;
+}
+
+.fight-stick .abxy {
+  left: 468px !important;
+}
+
+.fight-stick .bumpers {
+  right: 6px !important;
+  top: 89px !important;
+}
+
+.fight-stick .triggers {
+  right: 5px !important;
 }
 
 .xbox:not(.disconnected) {
@@ -29,7 +47,7 @@
 
 .xbox .button {
 	width: 49px !important;
-  	height: 49px !important;
+  height: 49px !important;
 	background-image: url('https://i.imgur.com/96AHwz3.png') !important;
 	transition: opacity 500ms ease-out, transform 500ms ease-out, filter 500ms ease-out  !important;
 }
