@@ -1,23 +1,23 @@
 .controller {
-	background-position: center center !important;
-	background-repeat: no-repeat !important;
-	background-size: contain !important;
+  background-position: center center !important;
+  background-repeat: no-repeat !important;
+  background-size: contain !important;
 }
 
 .controller.disconnected {
-	background-image: unset !important;
+  background-image: unset !important;
 }
 
 .quadrant {
-	display: none !important;
+  display: none !important;
 }
 
 .fight-stick:not(.disconnected) {
-  background-image: url('https://i.imgur.com/8tePulR.png') !important;
+  background-image: url("https://i.imgur.com/8tePulR.png") !important;
 }
 
 .fight-stick .arrows {
-	left: 47px !important;
+  left: 47px !important;
   top: 53px !important;
 }
 
@@ -34,75 +34,90 @@
   right: 5px !important;
 }
 
+.fight-stick .fstick {
+  left: 192px !important;
+  top: 198px !important;
+}
+
 .fight-stick .x.pressed,
 .fight-stick .y.pressed,
 .fight-stick .bumper.left.pressed,
 .fight-stick .bumper.right.pressed {
-    -webkit-filter: initial !important;
-	filter: initial !important;
+  -webkit-filter: initial !important;
+  filter: initial !important;
 }
 
 .fight-stick .x.pressed {
-	background: #E52B50 !important;
+  background: #e52b50 !important;
+}
+
+.fight-stick .y {
+  right: 1px !important;
 }
 
 .fight-stick .y.pressed {
-	background: #F1BB01 !important;
+  background: #f1bb01 !important;
 }
 
 .fight-stick .bumper.right.pressed {
-	background: #00D336 !important;
+  background: #00d336 !important;
+}
+
+.fight-stick .bumper.left {
+  right: 12px !important;
 }
 
 .fight-stick .bumper.left.pressed {
-	background: #009BFF !important;
+  background: #009bff !important;
 }
 
 .xbox:not(.disconnected) {
-	background-image: url('https://i.imgur.com/kSCUhB3.png') !important;
+  background-image: url("https://i.imgur.com/kSCUhB3.png") !important;
 }
 
 .xbox .stick {
-	width: 84px !important;
-	height: 83px !important;
-	background-image: url('https://i.imgur.com/J9OZnQi.png') !important;
-	transition: transform 500ms linear !important;
+  width: 84px !important;
+  height: 83px !important;
+  background-image: url("https://i.imgur.com/J9OZnQi.png") !important;
+  transition: transform 500ms linear !important;
 }
 
 .xbox .button {
-	width: 49px !important;
+  width: 49px !important;
   height: 49px !important;
-	background-image: url('https://i.imgur.com/96AHwz3.png') !important;
-	transition: opacity 500ms ease-out, transform 500ms ease-out, filter 500ms ease-out  !important;
+  background-image: url("https://i.imgur.com/96AHwz3.png") !important;
+  transition: opacity 500ms ease-out, transform 500ms ease-out,
+    filter 500ms ease-out !important;
 }
 
 .xbox .face,
 .xbox .button {
-	transition: opacity 500ms ease-out, transform 500ms ease-out, filter 500ms ease-out  !important;
+  transition: opacity 500ms ease-out, transform 500ms ease-out,
+    filter 500ms ease-out !important;
 }
 
 .xbox .button.pressed {
-   margin-top: unset !important;
+  margin-top: unset !important;
 }
 
 .xbox .bumper.pressed {
-	-webkit-filter: brightness(0.01);
-	filter: brightness(0.01);
+  -webkit-filter: brightness(0.01);
+  filter: brightness(0.01);
 }
 
 .xbox .a {
-	left: 55px !important;
-	top: 112px !important;
+  left: 55px !important;
+  top: 112px !important;
 }
 .xbox .b {
-	right: -2px !important;
-	top: 62px !important;
+  right: -2px !important;
+  top: 62px !important;
 }
 .xbox .x {
-	left: 4px !important;
-	top: 62px !important;
+  left: 4px !important;
+  top: 62px !important;
 }
 .xbox .y {
-	left: 55px !important;
-	top: 12px !important;
+  left: 55px !important;
+  top: 12px !important;
 }
