@@ -4,16 +4,20 @@
 	background-size: contain !important;
 }
 
+.controller.disconnected {
+	background-image: unset !important;
+}
+
 .quadrant {
 	display: none !important;
 }
 
-.xbox:not(.disconnected) {
-	background-image: url('https://i.imgur.com/kSCUhB3.png') !important;
+.controller.fight-stick {
+    background-image: url('https://i.imgur.com/8tePulR.png') !important;
 }
 
-.xbox.disconnected {
-	background-image: unset !important;
+.xbox:not(.disconnected) {
+	background-image: url('https://i.imgur.com/kSCUhB3.png') !important;
 }
 
 .xbox .stick {
@@ -25,7 +29,7 @@
 
 .xbox .button {
 	width: 49px !important;
-  height: 49px !important;
+  	height: 49px !important;
 	background-image: url('https://i.imgur.com/96AHwz3.png') !important;
 	transition: opacity 500ms ease-out, transform 500ms ease-out, filter 500ms ease-out  !important;
 }
