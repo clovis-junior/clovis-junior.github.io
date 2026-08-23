@@ -99,12 +99,12 @@
 .xbox .button.pressed {
   margin-top: unset !important;
 }
-/*
+
 .xbox .bumper.pressed {
-  -webkit-filter: brightness(0.01);
-  filter: brightness(0.01);
+  -webkit-filter: brightness(100%);
+  filter: brightness(100%);
 }
-*/
+
 .xbox .a {
   left: 55px !important;
   top: 112px !important;
