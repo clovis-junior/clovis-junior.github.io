@@ -1,14 +1,16 @@
 <!DOCTYPE html>
 <html lang="pt-br">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Views Overlay - Social Stream Ninja</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,100..900;1,100..900&display=swap" type="text/css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" type="text/css">
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,100..900;1,100..900&display=swap"
+        type="text/css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"
+        type="text/css">
     <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
     <link rel="icon" href="/favicon.ico" type="image/x-icon">
     <style type="text/css">
@@ -147,7 +149,6 @@
         }
     </style>
 </head>
-
 <body>
     <main id="platform_container"></main>
     <template id="platform-template">
@@ -157,888 +158,1254 @@
         </div>
     </template>
     <script type="text/javascript">
-(() => {
-    'use strict';
+        (() => {
+            'use strict';
+          
+            // ==========================================
+            // DOM
+            // ==========================================
 
-    // ==========================================
-    // DOM
-    // ==========================================
+            const container =
+                document.getElementById('platform_container');
 
-    const container =
-        document.getElementById('platform_container');
+            const template =
+                document.getElementById('platform-template');
 
-    const template =
-        document.getElementById('platform-template');
+            const params =
+                new URLSearchParams(window.location.search);
 
-    const params =
-        new URLSearchParams(window.location.search);
+            // ==========================================
+            // CONFIG
+            // ==========================================
 
-    // ==========================================
-    // CONFIG
-    // ==========================================
+            const CONFIG = {
+                session:
+                    params.get('session') || '',
 
-    const CONFIG = {
-        session:
-            params.get('session') || '',
+                password:
+                    params.get('password') || 'false',
 
-        password:
-            params.get('password') || 'false',
+                lanOnly:
+                    params.has('lanonly'),
 
-        lanOnly:
-            params.has('lanonly'),
+                hasServerMode:
+                    params.has('server') ||
+                    params.has('server2') ||
+                    params.has('server3')
+            };
 
-        hasServerMode:
-            params.has('server') ||
-            params.has('server2') ||
-            params.has('server3')
-    };
+            // ==========================================
+            // STATE
+            // ==========================================
 
-    // ==========================================
-    // STATE
-    // ==========================================
+            const state = new Map();
+            const elements = new Map();
+            const sockets = [];
 
-    const state = new Map();
-    const elements = new Map();
-    const sockets = [];
+            let iframe = null;
+            let sequence = 0;
 
-    let iframe = null;
-    let sequence = 0;
+            // viewers atuais
+            const viewerCounts =
+                Object.create(null);
 
-    // viewers atuais
-    const viewerCounts =
-        Object.create(null);
+            // plataformas registradas no SSN
+            // renderizadas imediatamente
+            const registeredPlatforms =
+                [
+                    'youtube',
+                    'twitch',
+                    'kick'
+                ];
 
-    // plataformas registradas no SSN
-    // renderizadas imediatamente
-    const registeredPlatforms =
-        [
-            'youtube',
-            'twitch',
-            'kick'
-        ];
+            // evita duplicação
+            const registeredPlatformMap =
+                new Set(registeredPlatforms);
 
-    // evita duplicação
-    const registeredPlatformMap =
-        new Set(registeredPlatforms);
+            // ==========================================
+            // HELPERS
+            // ==========================================
 
-    // ==========================================
-    // HELPERS
-    // ==========================================
-
-    const wait = ms =>
-        new Promise(resolve =>
-            setTimeout(resolve, ms)
-        );
-
-    function parseNumber(value) {
-
-        if (
-            typeof value === 'number' &&
-            Number.isFinite(value)
-        ) {
-            return value;
-        }
-
-        if (
-            typeof value === 'string'
-        ) {
-
-            const cleaned =
-                value.replace(
-                    /[^0-9.-]/g,
-                    ''
+            const wait = ms =>
+                new Promise(resolve =>
+                    setTimeout(resolve, ms)
                 );
 
-            if (!cleaned) {
+            function parseNumber(value) {
+
+                if (
+                    typeof value === 'number' &&
+                    Number.isFinite(value)
+                ) {
+                    return value;
+                }
+
+                if (
+                    typeof value === 'string'
+                ) {
+
+                    const cleaned =
+                        value.replace(
+                            /[^0-9.-]/g,
+                            ''
+                        );
+
+                    if (!cleaned) {
+                        return null;
+                    }
+
+                    const parsed =
+                        parseFloat(cleaned);
+
+                    return Number.isFinite(parsed)
+                        ? parsed
+                        : null;
+                }
+
                 return null;
             }
 
-            const parsed =
-                parseFloat(cleaned);
+            function formatNumberShort(
+                number,
+                precision = 1
+            ) {
 
-            return Number.isFinite(parsed)
-                ? parsed
-                : null;
-        }
+                number = Number(number);
 
-        return null;
-    }
+                if (number < 1000) {
+                    return number.toString();
+                }
 
-    function formatNumberShort(
-        number,
-        precision = 1
-    ) {
+                const suffixes =
+                    ['K', 'M', 'B', 'T'];
 
-        number = Number(number);
+                const suffixIndex =
+                    Math.floor(
+                        Math.log10(number) / 3
+                    ) - 1;
 
-        if (number < 1000) {
-            return number.toString();
-        }
-
-        const suffixes =
-            ['K', 'M', 'B', 'T'];
-
-        const suffixIndex =
-            Math.floor(
-                Math.log10(number) / 3
-            ) - 1;
-
-        const shortValue =
-            number /
-            Math.pow(
-                1000,
-                suffixIndex + 1
-            );
-
-        return `${parseFloat(
-            shortValue.toFixed(
-                precision
-            )
-        )}${suffixes[suffixIndex]}`;
-    }
-
-    function normalizeEventName(
-        eventName
-    ) {
-
-        if (
-            typeof eventName !==
-            'string'
-        ) {
-            return '';
-        }
-
-        return eventName
-            .toLowerCase()
-            .replace(
-                /[^a-z0-9]+/g,
-                '_'
-            )
-            .replace(
-                /_+/g,
-                '_'
-            )
-            .replace(
-                /^_+|_+$/g,
-                ''
-            );
-    }
-
-    function normalizePlatformName(
-        platform
-    ) {
-
-        if (!platform) {
-            return '';
-        }
-
-        platform =
-            platform
-                .toString()
-                .toLowerCase()
-                .trim();
-
-        // YOUTUBE
-
-        if (
-            platform.includes('youtube') ||
-            platform.includes('yt') ||
-            platform.includes('youtubegaming') ||
-            platform.includes('youtubegaming')
-        ) {
-            return 'youtube';
-        }
-
-        // TWITCH
-
-        if (
-            platform.includes('twitch')
-        ) {
-            return 'twitch';
-        }
-
-        // KICK
-
-        if (
-            platform.includes('kick')
-        ) {
-            return 'kick';
-        }
-
-        // FACEBOOK
-
-        if (
-            platform.includes('facebook') ||
-            platform.includes('fb')
-        ) {
-            return 'facebook';
-        }
-
-        // TIKTOK
-
-        if (
-            platform.includes('tiktok') ||
-            platform.includes('tik_tok')
-        ) {
-            return 'tiktok';
-        }
-
-        // TROVO
-
-        if (
-            platform.includes('trovo')
-        ) {
-            return 'trovo';
-        }
-
-        return platform
-            .replace(
-                /[^a-z0-9]/g,
-                ''
-            );
-    }
-
-    function isPlainObject(value) {
-
-        return (
-            Object.prototype.toString.call(
-                value
-            ) === '[object Object]'
-        );
-    }
-
-    // ==========================================
-    // PLATFORM REGISTRATION
-    // ==========================================
-
-    function registerPlatform(
-        platform
-    ) {
-
-        platform =
-            normalizePlatformName(
-                platform
-            );
-
-        if (!platform) {
-            return;
-        }
-
-        if (
-            registeredPlatformMap.has(
-                platform
-            )
-        ) {
-            return;
-        }
-
-        registeredPlatformMap.add(
-            platform
-        );
-
-        registeredPlatforms.push(
-            platform
-        );
-
-        if (
-            viewerCounts[
-            platform
-            ] === undefined
-        ) {
-            viewerCounts[
-                platform
-            ] = 0;
-        }
-    }
-
-    function registerPlatformsFromPayload(
-        data
-    ) {
-
-        const possiblePlatforms = [];
-
-        if (data.platform) {
-            possiblePlatforms.push(
-                data.platform
-            );
-        }
-
-        if (data.type) {
-            possiblePlatforms.push(
-                data.type
-            );
-        }
-
-        if (
-            isPlainObject(data.meta)
-        ) {
-
-            Object.keys(data.meta)
-                .forEach(platform => {
-                    possiblePlatforms.push(
-                        platform
+                const shortValue =
+                    number /
+                    Math.pow(
+                        1000,
+                        suffixIndex + 1
                     );
-                });
-        }
 
-        // procura em arrays vindos do SSN
-
-        const sourceArrays = [
-            data.sources,
-            data.accounts,
-            data.channels,
-            data.destinations
-        ];
-
-        sourceArrays.forEach(array => {
-
-            if (!Array.isArray(array)) {
-                return;
+                return `${parseFloat(
+                    shortValue.toFixed(
+                        precision
+                    )
+                )}${suffixes[suffixIndex]}`;
             }
 
-            array.forEach(item => {
+            function normalizeEventName(
+                eventName
+            ) {
 
                 if (
-                    typeof item === 'string'
+                    typeof eventName !==
+                    'string'
                 ) {
-                    possiblePlatforms.push(
-                        item
+                    return '';
+                }
+
+                return eventName
+                    .toLowerCase()
+                    .replace(
+                        /[^a-z0-9]+/g,
+                        '_'
+                    )
+                    .replace(
+                        /_+/g,
+                        '_'
+                    )
+                    .replace(
+                        /^_+|_+$/g,
+                        ''
                     );
+            }
+
+            function normalizePlatformName(
+                platform
+            ) {
+
+                if (!platform) {
+                    return '';
+                }
+
+                platform =
+                    platform
+                        .toString()
+                        .toLowerCase()
+                        .trim();
+
+                // YOUTUBE
+
+                if (
+                    platform.includes('youtube') ||
+                    platform.includes('yt') ||
+                    platform.includes('youtubegaming') ||
+                    platform.includes('youtubegaming')
+                ) {
+                    return 'youtube';
+                }
+
+                // TWITCH
+
+                if (
+                    platform.includes('twitch')
+                ) {
+                    return 'twitch';
+                }
+
+                // KICK
+
+                if (
+                    platform.includes('kick')
+                ) {
+                    return 'kick';
+                }
+
+                // FACEBOOK
+
+                if (
+                    platform.includes('facebook') ||
+                    platform.includes('fb')
+                ) {
+                    return 'facebook';
+                }
+
+                // TIKTOK
+
+                if (
+                    platform.includes('tiktok') ||
+                    platform.includes('tik_tok')
+                ) {
+                    return 'tiktok';
+                }
+
+                // TROVO
+
+                if (
+                    platform.includes('trovo')
+                ) {
+                    return 'trovo';
+                }
+
+                return platform
+                    .replace(
+                        /[^a-z0-9]/g,
+                        ''
+                    );
+            }
+
+            function isPlainObject(value) {
+
+                return (
+                    Object.prototype.toString.call(
+                        value
+                    ) === '[object Object]'
+                );
+            }
+
+            // ==========================================
+            // PLATFORM REGISTRATION
+            // ==========================================
+
+            function registerPlatform(
+                platform
+            ) {
+
+                platform =
+                    normalizePlatformName(
+                        platform
+                    );
+
+                if (!platform) {
                     return;
                 }
 
                 if (
-                    typeof item === 'object' &&
-                    item
-                ) {
-
-                    possiblePlatforms.push(
-                        item.type
-                    );
-
-                    possiblePlatforms.push(
-                        item.platform
-                    );
-
-                    possiblePlatforms.push(
-                        item.name
-                    );
-                }
-            });
-        });
-
-        possiblePlatforms.forEach(
-            registerPlatform
-        );
-    }
-
-    // ==========================================
-    // ENTRY
-    // ==========================================
-
-    function setEntry({
-        id,
-        platform,
-        value,
-        label,
-        order
-    }) {
-
-        if (!id) {
-            return;
-        }
-
-        const existing =
-            state.get(id);
-
-        state.set(id, {
-            id,
-            platform,
-            value,
-            label,
-            order,
-            sequence:
-                existing?.sequence ??
-                ++sequence
-        });
-    }
-
-    // ==========================================
-    // VIEWERS
-    // ==========================================
-
-    function syncViewerEntries() {
-
-        let total = 0;
-
-        // TOTAL sempre primeiro
-
-        setEntry({
-            id: 'viewer-total',
-            platform: 'total',
-            label: 'Total Viewers',
-            value: 0,
-            order: 0
-        });
-
-        registeredPlatforms.forEach(
-            (
-                platform,
-                index
-            ) => {
-
-                const numeric =
-                    parseNumber(
-                        viewerCounts[
+                    registeredPlatformMap.has(
                         platform
-                        ] ?? 0
-                    ) ?? 0;
+                    )
+                ) {
+                    return;
+                }
 
-                total += numeric;
-
-                setEntry({
-                    id:
-                        `viewer-${platform}`,
-
-                    platform,
-
-                    label:
-                        `${platform.toUpperCase()} Viewers`,
-
-                    value: numeric,
-
-                    // ordem exata do SSN
-                    order:
-                        index + 1
-                });
-            }
-        );
-
-        // atualiza total
-
-        const totalEntry =
-            state.get(
-                'viewer-total'
-            );
-
-        if (totalEntry) {
-            totalEntry.value = total;
-        }
-
-        render();
-    }
-
-    // ==========================================
-    // ANIMATION
-    // ==========================================
-
-    async function animateUpdate(
-        element
-    ) {
-
-        element.classList.remove(
-            'animate-pop'
-        );
-
-        void element.offsetWidth;
-
-        element.classList.add(
-            'animate-pop'
-        );
-
-        await wait(400);
-
-        element.classList.remove(
-            'animate-pop'
-        );
-    }
-
-    // ==========================================
-    // CREATE ELEMENT
-    // ==========================================
-
-    function createPlatformElement(
-        entry
-    ) {
-
-        const fragment =
-            template.content.cloneNode(
-                true
-            );
-
-        const base =
-            fragment.querySelector(
-                '.platform'
-            );
-
-        const icon =
-            fragment.querySelector(
-                '.icon'
-            );
-
-        const views =
-            fragment.querySelector(
-                '.views'
-            );
-
-        base.dataset.platform =
-            entry.platform;
-
-        base.classList.add(
-            entry.platform
-        );
-
-        icon?.classList.add(
-            entry.platform
-        );
-
-        views.dataset.value =
-            entry.value;
-
-        views.textContent =
-            formatNumberShort(
-                entry.value
-            );
-
-        container.appendChild(
-            base
-        );
-
-        elements.set(
-            entry.platform,
-            {
-                base,
-                views
-            }
-        );
-    }
-
-    // ==========================================
-    // UPDATE ELEMENT
-    // ==========================================
-
-    function updatePlatformElement(
-        entry
-    ) {
-
-        const element =
-            elements.get(
-                entry.platform
-            );
-
-        if (!element) {
-            createPlatformElement(
-                entry
-            );
-            return;
-        }
-
-        const currentValue =
-            Number(
-                element.views.dataset
-                    .value
-            );
-
-        if (
-            currentValue ===
-            entry.value
-        ) {
-            return;
-        }
-
-        element.views.dataset.value =
-            entry.value;
-
-        element.views.textContent =
-            formatNumberShort(
-                entry.value
-            );
-
-        animateUpdate(
-            element.views
-        );
-    }
-
-    // ==========================================
-    // RENDER
-    // ==========================================
-
-    function render() {
-
-        const entries =
-            [...state.values()]
-                .sort(
-                    (a, b) => {
-
-                        if (
-                            a.order !==
-                            b.order
-                        ) {
-                            return (
-                                a.order -
-                                b.order
-                            );
-                        }
-
-                        return (
-                            a.sequence -
-                            b.sequence
-                        );
-                    }
+                registeredPlatformMap.add(
+                    platform
                 );
 
-        // renderiza tudo primeiro
-
-        entries.forEach(
-            updatePlatformElement
-        );
-
-        // reorganiza DOM
-
-        entries.forEach(entry => {
-
-            const element =
-                elements.get(
-                    entry.platform
+                registeredPlatforms.push(
+                    platform
                 );
 
-            if (
-                element?.base
-            ) {
-                container.appendChild(
-                    element.base
-                );
-            }
-        });
-    }
-
-    // ==========================================
-    // PAYLOAD
-    // ==========================================
-
-    function processPayload(data) {
-
-        if (
-            !data ||
-            typeof data !==
-            'object'
-        ) {
-            return;
-        }
-
-        if (
-            data.content &&
-            typeof data.content ===
-            'object'
-        ) {
-
-            data = data.content;
-        }
-
-        // registra plataformas detectadas
-
-        registerPlatformsFromPayload(
-            data
-        );
-
-        const eventName =
-            normalizeEventName(
-                data.event ||
-                data.type ||
-                ''
-            );
-
-        const meta =
-            data.meta;
-
-        // ==========================================
-        // SINGLE PLATFORM
-        // ==========================================
-
-        if (
-            eventName ===
-            'viewer_update'
-        ) {
-
-            const platform =
-                normalizePlatformName(
-                    data.platform ||
-                    data.type ||
-                    ''
-                );
-
-            const count =
-                parseNumber(meta);
-
-            if (
-                !platform ||
-                count === null
-            ) {
-                return;
-            }
-
-            registerPlatform(
-                platform
-            );
-
-            // soma múltiplas lives da mesma plataforma
-
-            viewerCounts[
-                platform
-            ] = count;
-
-            syncViewerEntries();
-
-            return;
-        }
-
-        // ==========================================
-        // MULTIPLE PLATFORMS
-        // ==========================================
-
-        if (
-            eventName ===
-            'viewer_updates'
-        ) {
-
-            if (
-                !isPlainObject(meta)
-            ) {
-                syncViewerEntries();
-                return;
-            }
-
-            // reset apenas das plataformas conhecidas
-
-            registeredPlatforms.forEach(
-                platform => {
+                if (
+                    viewerCounts[
+                    platform
+                    ] === undefined
+                ) {
                     viewerCounts[
                         platform
                     ] = 0;
                 }
-            );
+            }
 
-            Object.entries(meta)
-                .forEach(
-                    ([platform, value]) => {
+            function registerPlatformsFromPayload(
+                data
+            ) {
 
-                        platform =
-                            normalizePlatformName(
+                const possiblePlatforms = [];
+
+                if (data.platform) {
+                    possiblePlatforms.push(
+                        data.platform
+                    );
+                }
+
+                if (data.type) {
+                    possiblePlatforms.push(
+                        data.type
+                    );
+                }
+
+                if (
+                    isPlainObject(data.meta)
+                ) {
+
+                    Object.keys(data.meta)
+                        .forEach(platform => {
+                            possiblePlatforms.push(
                                 platform
                             );
+                        });
+                }
 
-                        const count =
-                            parseNumber(
-                                value
+                // procura em arrays vindos do SSN
+
+                const sourceArrays = [
+                    data.sources,
+                    data.accounts,
+                    data.channels,
+                    data.destinations
+                ];
+
+                sourceArrays.forEach(array => {
+
+                    if (!Array.isArray(array)) {
+                        return;
+                    }
+
+                    array.forEach(item => {
+
+                        if (
+                            typeof item === 'string'
+                        ) {
+                            possiblePlatforms.push(
+                                item
+                            );
+                            return;
+                        }
+
+                        if (
+                            typeof item === 'object' &&
+                            item
+                        ) {
+
+                            possiblePlatforms.push(
+                                item.type
+                            );
+
+                            possiblePlatforms.push(
+                                item.platform
+                            );
+
+                            possiblePlatforms.push(
+                                item.name
+                            );
+                        }
+                    });
+                });
+
+                possiblePlatforms.forEach(
+                    registerPlatform
+                );
+            }
+
+            // ==========================================
+            // ENTRY
+            // ==========================================
+
+            function setEntry({
+                id,
+                platform,
+                value,
+                label,
+                order
+            }) {
+                if (!id) {
+                    return;
+                }
+
+                const existing =
+                    state.get(id);
+
+                // Reutiliza o mesmo objeto.
+                // Não cria um novo objeto a cada atualização.
+                if (existing) {
+                    existing.platform = platform;
+                    existing.value = value;
+                    existing.label = label;
+                    existing.order = order;
+
+                    return;
+                }
+
+                // Só cria o objeto uma única vez.
+                state.set(id, {
+                    id,
+                    platform,
+                    value,
+                    label,
+                    order,
+                    sequence: ++sequence
+                });
+            }
+
+
+            // ==========================================
+            // CREATE ELEMENT
+            // ==========================================
+
+            function createPlatformElement(entry) {
+                const fragment =
+                    template.content.cloneNode(true);
+
+                const base =
+                    fragment.querySelector(
+                        '.platform'
+                    );
+
+                const icon =
+                    fragment.querySelector(
+                        '.icon'
+                    );
+
+                const views =
+                    fragment.querySelector(
+                        '.views'
+                    );
+
+                // Usa o ID lógico da entrada no DOM.
+                base.dataset.id =
+                    entry.id;
+
+                base.dataset.platform =
+                    entry.platform;
+
+                base.classList.add(
+                    entry.platform
+                );
+
+                icon?.classList.add(
+                    entry.platform
+                );
+
+                views.dataset.value =
+                    entry.value;
+
+                views.textContent =
+                    formatNumberShort(
+                        entry.value
+                    );
+
+                container.appendChild(
+                    base
+                );
+
+                // IMPORTANTE:
+                // usa o mesmo ID usado pelo state.
+                elements.set(
+                    entry.id,
+                    {
+                        base,
+                        views
+                    }
+                );
+
+                return {
+                    base,
+                    views
+                };
+            }
+
+
+            // ==========================================
+            // UPDATE ELEMENT
+            // ==========================================
+
+            function updatePlatformElement(entry) {
+                let element =
+                    elements.get(
+                        entry.id
+                    );
+
+                // Cria somente se ainda não existir.
+                if (!element) {
+                    element =
+                        createPlatformElement(
+                            entry
+                        );
+
+                    return;
+                }
+
+                const currentValue =
+                    Number(
+                        element.views.dataset
+                            .value
+                    );
+
+                // Nada mudou.
+                if (
+                    currentValue ===
+                    entry.value
+                ) {
+                    return;
+                }
+
+                element.views.dataset.value =
+                    entry.value;
+
+                element.views.textContent =
+                    formatNumberShort(
+                        entry.value
+                    );
+
+                animateUpdate(
+                    element.views
+                );
+            }
+
+
+            // ==========================================
+            // RENDER
+            // ==========================================
+
+            let renderedOrder = '';
+
+            function render() {
+                const entries =
+                    [...state.values()]
+                        .sort(
+                            (a, b) => {
+                                if (
+                                    a.order !==
+                                    b.order
+                                ) {
+                                    return (
+                                        a.order -
+                                        b.order
+                                    );
+                                }
+
+                                return (
+                                    a.sequence -
+                                    b.sequence
+                                );
+                            }
+                        );
+
+                // Atualiza somente os valores.
+                entries.forEach(
+                    updatePlatformElement
+                );
+
+                // Descobre a ordem atual.
+                const nextOrder =
+                    entries
+                        .map(
+                            entry =>
+                                entry.id
+                        )
+                        .join('|');
+
+                // Se a ordem não mudou,
+                // não toca no DOM.
+                if (
+                    nextOrder ===
+                    renderedOrder
+                ) {
+                    return;
+                }
+
+                renderedOrder =
+                    nextOrder;
+
+                // Só reorganiza o DOM quando
+                // a ordem realmente mudou.
+                entries.forEach(
+                    (entry, index) => {
+                        const element =
+                            elements.get(
+                                entry.id
                             );
 
                         if (
-                            !platform ||
-                            count === null
+                            !element?.base
                         ) {
                             return;
                         }
 
-                        registerPlatform(
-                            platform
+                        const current =
+                            container.children[
+                            index
+                            ];
+
+                        // Já está na posição correta.
+                        if (
+                            current ===
+                            element.base
+                        ) {
+                            return;
+                        }
+
+                        container.insertBefore(
+                            element.base,
+                            current ?? null
+                        );
+                    }
+                );
+            }
+
+
+            // ==========================================
+            // PAYLOAD
+            // ==========================================
+
+            function processPayload(data) {
+                if (
+                    !data ||
+                    typeof data !==
+                    'object'
+                ) {
+                    return;
+                }
+
+                if (
+                    data.content &&
+                    typeof data.content ===
+                    'object'
+                ) {
+                    data = data.content;
+                }
+
+                // Registra plataformas detectadas.
+                registerPlatformsFromPayload(
+                    data
+                );
+
+                const eventName =
+                    normalizeEventName(
+                        data.event ||
+                        data.type ||
+                        ''
+                    );
+
+                const meta =
+                    data.meta;
+
+                // ==========================================
+                // SINGLE PLATFORM
+                // ==========================================
+
+                if (
+                    eventName ===
+                    'viewer_update'
+                ) {
+                    const platform =
+                        normalizePlatformName(
+                            data.platform ||
+                            data.type ||
+                            ''
                         );
 
-                        // soma múltiplas entradas
+                    const count =
+                        parseNumber(meta);
 
-                        viewerCounts[
-                            platform
-                        ] =
-                            (
+                    if (
+                        !platform ||
+                        count === null
+                    ) {
+                        return;
+                    }
+
+                    registerPlatform(
+                        platform
+                    );
+
+                    viewerCounts[
+                        platform
+                    ] = count;
+
+                    syncViewerEntries();
+
+                    return;
+                }
+
+
+                // ==========================================
+                // MULTIPLE PLATFORMS
+                // ==========================================
+
+                if (
+                    eventName ===
+                    'viewer_updates'
+                ) {
+                    if (
+                        !isPlainObject(meta)
+                    ) {
+                        syncViewerEntries();
+
+                        return;
+                    }
+
+                    // Reset apenas das plataformas conhecidas.
+                    registeredPlatforms.forEach(
+                        platform => {
+                            viewerCounts[
+                                platform
+                            ] = 0;
+                        }
+                    );
+
+                    Object.entries(meta)
+                        .forEach(
+                            ([platform, value]) => {
+                                platform =
+                                    normalizePlatformName(
+                                        platform
+                                    );
+
+                                const count =
+                                    parseNumber(
+                                        value
+                                    );
+
+                                if (
+                                    !platform ||
+                                    count === null
+                                ) {
+                                    return;
+                                }
+
+                                registerPlatform(
+                                    platform
+                                );
+
+                                viewerCounts[
+                                    platform
+                                ] =
+                                    (
+                                        viewerCounts[
+                                        platform
+                                        ] || 0
+                                    ) + count;
+                            }
+                        );
+
+                    syncViewerEntries();
+
+                    // IMPORTANTE:
+                    // impede que o fallback abaixo
+                    // execute uma segunda sincronização.
+                    return;
+                }
+
+                // ==========================================
+                // FALLBACK
+                // ==========================================
+
+                syncViewerEntries();
+            }
+
+            // ==========================================
+            // VIEWERS
+            // ==========================================
+
+            function syncViewerEntries() {
+
+                let total = 0;
+
+                // TOTAL sempre primeiro
+
+                setEntry({
+                    id: 'viewer-total',
+                    platform: 'total',
+                    label: 'Total Viewers',
+                    value: 0,
+                    order: 0
+                });
+
+                registeredPlatforms.forEach(
+                    (
+                        platform,
+                        index
+                    ) => {
+
+                        const numeric =
+                            parseNumber(
                                 viewerCounts[
                                 platform
-                                ] || 0
-                            ) + count;
+                                ] ?? 0
+                            ) ?? 0;
+
+                        total += numeric;
+
+                        setEntry({
+                            id:
+                                `viewer-${platform}`,
+
+                            platform,
+
+                            label:
+                                `${platform.toUpperCase()} Viewers`,
+
+                            value: numeric,
+
+                            // ordem exata do SSN
+                            order:
+                                index + 1
+                        });
                     }
                 );
 
-            syncViewerEntries();
-        }
+                // atualiza total
 
-        // fallback
+                const totalEntry =
+                    state.get(
+                        'viewer-total'
+                    );
 
-        syncViewerEntries();
-    }
+                if (totalEntry) {
+                    totalEntry.value = total;
+                }
 
-    // ==========================================
-    // INCOMING DATA
-    // ==========================================
+                render();
+            }
 
-    function processIncomingData(
-        raw
-    ) {
+            // ==========================================
+            // ANIMATION
+            // ==========================================
 
-        if (
-            !raw ||
-            typeof raw !==
-            'object'
-        ) {
-            return;
-        }
+            async function animateUpdate(
+                element
+            ) {
 
-        if (
-            raw.dataReceived
-                ?.overlayNinja
-        ) {
+                element.classList.remove(
+                    'animate-pop'
+                );
 
-            processPayload(
-                raw.dataReceived
-                    .overlayNinja
-            );
+                void element.offsetWidth;
 
-            return;
-        }
+                element.classList.add(
+                    'animate-pop'
+                );
 
-        if (
-            raw.overlayNinja
-        ) {
+                await wait(400);
 
-            processPayload(
-                raw.overlayNinja
-            );
+                element.classList.remove(
+                    'animate-pop'
+                );
+            }
 
-            return;
-        }
+            // ==========================================
+            // CREATE ELEMENT
+            // ==========================================
 
-        processPayload(raw);
-    }
+            function createPlatformElement(
+                entry
+            ) {
 
-    // ==========================================
-    // IFRAME
-    // ==========================================
+                const fragment =
+                    template.content.cloneNode(
+                        true
+                    );
 
-    function connectIframe() {
+                const base =
+                    fragment.querySelector(
+                        '.platform'
+                    );
 
-        if (
-            !CONFIG.session ||
-            CONFIG.hasServerMode
-        ) {
-            return;
-        }
+                const icon =
+                    fragment.querySelector(
+                        '.icon'
+                    );
 
-        const password =
-            encodeURIComponent(
-                CONFIG.password
-            );
+                const views =
+                    fragment.querySelector(
+                        '.views'
+                    );
 
-        const lanOnly =
-            CONFIG.lanOnly
-                ? '&lanonly'
-                : '';
+                base.dataset.platform =
+                    entry.platform;
 
-        iframe =
-            document.createElement(
-                'iframe'
-            );
+                base.classList.add(
+                    entry.platform
+                );
 
-        iframe.src =
-            `https://vdo.socialstream.ninja/?ln&salt=vdo.ninja&notmobile&password=${password + lanOnly}&solo&view=${encodeURIComponent(CONFIG.session)}&novideo&noaudio&label=meta&cleanoutput&room=${encodeURIComponent(CONFIG.session)}`;
+                icon?.classList.add(
+                    entry.platform
+                );
 
-        iframe.style.cssText = `
+                views.dataset.value =
+                    entry.value;
+
+                views.textContent =
+                    formatNumberShort(
+                        entry.value
+                    );
+
+                container.appendChild(
+                    base
+                );
+
+                elements.set(
+                    entry.platform,
+                    {
+                        base,
+                        views
+                    }
+                );
+            }
+
+            // ==========================================
+            // UPDATE ELEMENT
+            // ==========================================
+
+            function updatePlatformElement(
+                entry
+            ) {
+
+                const element =
+                    elements.get(
+                        entry.platform
+                    );
+
+                if (!element) {
+                    createPlatformElement(
+                        entry
+                    );
+                    return;
+                }
+
+                const currentValue =
+                    Number(
+                        element.views.dataset
+                            .value
+                    );
+
+                if (
+                    currentValue ===
+                    entry.value
+                ) {
+                    return;
+                }
+
+                element.views.dataset.value =
+                    entry.value;
+
+                element.views.textContent =
+                    formatNumberShort(
+                        entry.value
+                    );
+
+                animateUpdate(
+                    element.views
+                );
+            }
+
+            // ==========================================
+            // RENDER
+            // ==========================================
+
+            function render() {
+
+                const entries =
+                    [...state.values()]
+                        .sort(
+                            (a, b) => {
+
+                                if (
+                                    a.order !==
+                                    b.order
+                                ) {
+                                    return (
+                                        a.order -
+                                        b.order
+                                    );
+                                }
+
+                                return (
+                                    a.sequence -
+                                    b.sequence
+                                );
+                            }
+                        );
+
+                // renderiza tudo primeiro
+
+                entries.forEach(
+                    updatePlatformElement
+                );
+
+                // reorganiza DOM
+
+                entries.forEach(entry => {
+
+                    const element =
+                        elements.get(
+                            entry.platform
+                        );
+
+                    if (
+                        element?.base
+                    ) {
+                        container.appendChild(
+                            element.base
+                        );
+                    }
+                });
+            }
+
+            // ==========================================
+            // PAYLOAD
+            // ==========================================
+
+            function processPayload(data) {
+
+                if (
+                    !data ||
+                    typeof data !==
+                    'object'
+                ) {
+                    return;
+                }
+
+                if (
+                    data.content &&
+                    typeof data.content ===
+                    'object'
+                ) {
+
+                    data = data.content;
+                }
+
+                // registra plataformas detectadas
+
+                registerPlatformsFromPayload(
+                    data
+                );
+
+                const eventName =
+                    normalizeEventName(
+                        data.event ||
+                        data.type ||
+                        ''
+                    );
+
+                const meta =
+                    data.meta;
+
+                // ==========================================
+                // SINGLE PLATFORM
+                // ==========================================
+
+                if (
+                    eventName ===
+                    'viewer_update'
+                ) {
+
+                    const platform =
+                        normalizePlatformName(
+                            data.platform ||
+                            data.type ||
+                            ''
+                        );
+
+                    const count =
+                        parseNumber(meta);
+
+                    if (
+                        !platform ||
+                        count === null
+                    ) {
+                        return;
+                    }
+
+                    registerPlatform(
+                        platform
+                    );
+
+                    // soma múltiplas lives da mesma plataforma
+
+                    viewerCounts[
+                        platform
+                    ] = count;
+
+                    syncViewerEntries();
+
+                    return;
+                }
+
+                // ==========================================
+                // MULTIPLE PLATFORMS
+                // ==========================================
+
+                if (
+                    eventName ===
+                    'viewer_updates'
+                ) {
+
+                    if (
+                        !isPlainObject(meta)
+                    ) {
+                        syncViewerEntries();
+                        return;
+                    }
+
+                    // reset apenas das plataformas conhecidas
+
+                    registeredPlatforms.forEach(
+                        platform => {
+                            viewerCounts[
+                                platform
+                            ] = 0;
+                        }
+                    );
+
+                    Object.entries(meta)
+                        .forEach(
+                            ([platform, value]) => {
+
+                                platform =
+                                    normalizePlatformName(
+                                        platform
+                                    );
+
+                                const count =
+                                    parseNumber(
+                                        value
+                                    );
+
+                                if (
+                                    !platform ||
+                                    count === null
+                                ) {
+                                    return;
+                                }
+
+                                registerPlatform(
+                                    platform
+                                );
+
+                                // soma múltiplas entradas
+
+                                viewerCounts[
+                                    platform
+                                ] =
+                                    (
+                                        viewerCounts[
+                                        platform
+                                        ] || 0
+                                    ) + count;
+                            }
+                        );
+
+                    syncViewerEntries();
+                }
+
+                // fallback
+
+                syncViewerEntries();
+            }
+
+            // ==========================================
+            // INCOMING DATA
+            // ==========================================
+
+            function processIncomingData(
+                raw
+            ) {
+
+                if (
+                    !raw ||
+                    typeof raw !==
+                    'object'
+                ) {
+                    return;
+                }
+
+                if (
+                    raw.dataReceived
+                        ?.overlayNinja
+                ) {
+
+                    processPayload(
+                        raw.dataReceived
+                            .overlayNinja
+                    );
+
+                    return;
+                }
+
+                if (
+                    raw.overlayNinja
+                ) {
+
+                    processPayload(
+                        raw.overlayNinja
+                    );
+
+                    return;
+                }
+
+                processPayload(raw);
+            }
+
+            // ==========================================
+            // IFRAME
+            // ==========================================
+
+            function connectIframe() {
+
+                if (
+                    !CONFIG.session ||
+                    CONFIG.hasServerMode
+                ) {
+                    return;
+                }
+
+                const password =
+                    encodeURIComponent(
+                        CONFIG.password
+                    );
+
+                const lanOnly =
+                    CONFIG.lanOnly
+                        ? '&lanonly'
+                        : '';
+
+                iframe =
+                    document.createElement(
+                        'iframe'
+                    );
+
+                iframe.src =
+                    `https://vdo.socialstream.ninja/?ln&salt=vdo.ninja&notmobile&password=${password + lanOnly}&solo&view=${encodeURIComponent(CONFIG.session)}&novideo&noaudio&label=meta&cleanoutput&room=${encodeURIComponent(CONFIG.session)}`;
+
+                iframe.style.cssText = `
             width:0;
             height:0;
             position:fixed;
@@ -1048,339 +1415,339 @@
             pointer-events:none;
         `;
 
-        document.body.appendChild(
-            iframe
-        );
-    }
-
-    // ==========================================
-    // SOCKET
-    // ==========================================
-
-    function connectSocket({
-        url,
-        roomId,
-        out,
-        inChannel
-    }) {
-
-        if (
-            !url ||
-            !roomId
-        ) {
-            return;
-        }
-
-        const connection = {
-            socket: null,
-            timer: null,
-            attempts: 1,
-            closed: false
-        };
-
-        sockets.push(connection);
-
-        function reconnect() {
-
-            if (
-                connection.closed
-            ) {
-                return;
-            }
-
-            clearTimeout(
-                connection.timer
-            );
-
-            const delay =
-                Math.min(
-                    12000,
-                    250 *
-                    connection.attempts
+                document.body.appendChild(
+                    iframe
                 );
-
-            connection.timer =
-                setTimeout(
-                    connect,
-                    delay
-                );
-
-            connection.attempts++;
-        }
-
-        function connect() {
-
-            if (
-                connection.closed
-            ) {
-                return;
             }
 
-            try {
+            // ==========================================
+            // SOCKET
+            // ==========================================
 
-                connection.socket =
-                    new WebSocket(
-                        url
-                    );
+            function connectSocket({
+                url,
+                roomId,
+                out,
+                inChannel
+            }) {
 
-            } catch {
+                if (
+                    !url ||
+                    !roomId
+                ) {
+                    return;
+                }
 
-                reconnect();
-                return;
-            }
-
-            connection.socket.onopen =
-                () => {
-
-                    connection.attempts = 1;
-
-                    connection.socket.send(
-                        JSON.stringify({
-                            join:
-                                roomId,
-                            out,
-                            in:
-                                inChannel
-                        })
-                    );
+                const connection = {
+                    socket: null,
+                    timer: null,
+                    attempts: 1,
+                    closed: false
                 };
 
-            connection.socket.onmessage =
-                event => {
+                sockets.push(connection);
+
+                function reconnect() {
 
                     if (
-                        !event?.data
+                        connection.closed
+                    ) {
+                        return;
+                    }
+
+                    clearTimeout(
+                        connection.timer
+                    );
+
+                    const delay =
+                        Math.min(
+                            12000,
+                            250 *
+                            connection.attempts
+                        );
+
+                    connection.timer =
+                        setTimeout(
+                            connect,
+                            delay
+                        );
+
+                    connection.attempts++;
+                }
+
+                function connect() {
+
+                    if (
+                        connection.closed
                     ) {
                         return;
                     }
 
                     try {
 
-                        const parsed =
-                            JSON.parse(
-                                event.data
+                        connection.socket =
+                            new WebSocket(
+                                url
                             );
 
-                        processIncomingData(
-                            parsed
-                        );
+                    } catch {
 
-                        if (
-                            parsed?.get
-                        ) {
+                        reconnect();
+                        return;
+                    }
+
+                    connection.socket.onopen =
+                        () => {
+
+                            connection.attempts = 1;
 
                             connection.socket.send(
                                 JSON.stringify({
-                                    callback: {
-                                        get:
-                                            parsed.get,
-                                        result: true
-                                    }
+                                    join:
+                                        roomId,
+                                    out,
+                                    in:
+                                        inChannel
                                 })
                             );
-                        }
+                        };
 
-                    } catch { }
-                };
+                    connection.socket.onmessage =
+                        event => {
 
-            connection.socket.onerror =
-                () => {
+                            if (
+                                !event?.data
+                            ) {
+                                return;
+                            }
 
-                    try {
+                            try {
 
-                        connection.socket.close();
+                                const parsed =
+                                    JSON.parse(
+                                        event.data
+                                    );
 
-                    } catch { }
-                };
+                                processIncomingData(
+                                    parsed
+                                );
 
-            connection.socket.onclose =
-                reconnect;
-        }
+                                if (
+                                    parsed?.get
+                                ) {
 
-        connect();
-    }
+                                    connection.socket.send(
+                                        JSON.stringify({
+                                            callback: {
+                                                get:
+                                                    parsed.get,
+                                                result: true
+                                            }
+                                        })
+                                    );
+                                }
 
-    // ==========================================
-    // SERVER MODES
-    // ==========================================
+                            } catch { }
+                        };
 
-    function connectServerModes() {
+                    connection.socket.onerror =
+                        () => {
 
-        const roomId =
-            CONFIG.session
-                .split(',')[0];
+                            try {
 
-        if (!roomId) {
-            return;
-        }
+                                connection.socket.close();
 
-        // API SERVER
+                            } catch { }
+                        };
 
-        if (
-            params.has('server')
-        ) {
+                    connection.socket.onclose =
+                        reconnect;
+                }
 
-            const url =
-                params.get(
-                    'server'
-                ) ||
-                (
-                    params.has(
-                        'localserver'
-                    )
-                        ? 'ws://127.0.0.1:3000'
-                        : 'wss://io.socialstream.ninja/api'
-                );
+                connect();
+            }
 
-            connectSocket({
-                url,
-                roomId,
-                out: 2,
-                inChannel: 1
-            });
-        }
+            // ==========================================
+            // SERVER MODES
+            // ==========================================
 
-        // EXTENSION SERVER
+            function connectServerModes() {
 
-        if (
-            params.has(
-                'server2'
-            ) ||
-            params.has(
-                'server3'
-            )
-        ) {
+                const roomId =
+                    CONFIG.session
+                        .split(',')[0];
 
-            const url =
-                params.has(
-                    'server2'
-                )
-                    ? (
-                        params.get(
-                            'server2'
-                        ) ||
-                        'wss://io.socialstream.ninja/extension'
-                    )
-                    : (
-                        params.get(
-                            'server3'
-                        ) ||
-                        'wss://io.socialstream.ninja/extension'
-                    );
-
-            connectSocket({
-                url,
-                roomId,
-                out: 3,
-                inChannel: 4
-            });
-        }
-    }
-
-    // ==========================================
-    // MESSAGE LISTENER
-    // ==========================================
-
-    window.addEventListener(
-        'message',
-        event => {
-
-            let payload =
-                null;
-
-            if (
-                event?.data
-                    ?.dataReceived
-                    ?.overlayNinja
-            ) {
-
-                if (
-                    iframe &&
-                    event.source !==
-                    iframe.contentWindow
-                ) {
+                if (!roomId) {
                     return;
                 }
 
-                payload =
-                    event.data
-                        .dataReceived
-                        .overlayNinja;
+                // API SERVER
+
+                if (
+                    params.has('server')
+                ) {
+
+                    const url =
+                        params.get(
+                            'server'
+                        ) ||
+                        (
+                            params.has(
+                                'localserver'
+                            )
+                                ? 'ws://127.0.0.1:3000'
+                                : 'wss://io.socialstream.ninja/api'
+                        );
+
+                    connectSocket({
+                        url,
+                        roomId,
+                        out: 2,
+                        inChannel: 1
+                    });
+                }
+
+                // EXTENSION SERVER
+
+                if (
+                    params.has(
+                        'server2'
+                    ) ||
+                    params.has(
+                        'server3'
+                    )
+                ) {
+
+                    const url =
+                        params.has(
+                            'server2'
+                        )
+                            ? (
+                                params.get(
+                                    'server2'
+                                ) ||
+                                'wss://io.socialstream.ninja/extension'
+                            )
+                            : (
+                                params.get(
+                                    'server3'
+                                ) ||
+                                'wss://io.socialstream.ninja/extension'
+                            );
+
+                    connectSocket({
+                        url,
+                        roomId,
+                        out: 3,
+                        inChannel: 4
+                    });
+                }
             }
 
-            else if (
-                event?.data
-                    ?.overlayNinja
-            ) {
+            // ==========================================
+            // MESSAGE LISTENER
+            // ==========================================
 
-                payload =
-                    event.data
-                        .overlayNinja;
-            }
+            window.addEventListener(
+                'message',
+                event => {
 
-            if (payload) {
-                processIncomingData(
-                    payload
-                );
-            }
-        }
-    );
-
-    // ==========================================
-    // CLEANUP
-    // ==========================================
-
-    window.addEventListener(
-        'beforeunload',
-        () => {
-
-            sockets.forEach(
-                connection => {
-
-                    connection.closed =
-                        true;
-
-                    clearTimeout(
-                        connection.timer
-                    );
+                    let payload =
+                        null;
 
                     if (
-                        connection.socket
+                        event?.data
+                            ?.dataReceived
+                            ?.overlayNinja
                     ) {
 
-                        try {
+                        if (
+                            iframe &&
+                            event.source !==
+                            iframe.contentWindow
+                        ) {
+                            return;
+                        }
 
-                            connection.socket.onclose =
-                                null;
+                        payload =
+                            event.data
+                                .dataReceived
+                                .overlayNinja;
+                    }
 
-                            connection.socket.close();
+                    else if (
+                        event?.data
+                            ?.overlayNinja
+                    ) {
 
-                        } catch { }
+                        payload =
+                            event.data
+                                .overlayNinja;
+                    }
+
+                    if (payload) {
+                        processIncomingData(
+                            payload
+                        );
                     }
                 }
             );
-        }
-    );
 
-    // ==========================================
-    // INIT
-    // ==========================================
+            // ==========================================
+            // CLEANUP
+            // ==========================================
 
-    // render inicial completo
+            window.addEventListener(
+                'beforeunload',
+                () => {
 
-    registeredPlatforms.forEach(
-        platform => {
-            viewerCounts[platform] = 0;
-        }
-    );
+                    sockets.forEach(
+                        connection => {
 
-    syncViewerEntries();
+                            connection.closed =
+                                true;
 
-    connectServerModes();
+                            clearTimeout(
+                                connection.timer
+                            );
 
-    connectIframe();
+                            if (
+                                connection.socket
+                            ) {
 
-})();
+                                try {
+
+                                    connection.socket.onclose =
+                                        null;
+
+                                    connection.socket.close();
+
+                                } catch { }
+                            }
+                        }
+                    );
+                }
+            );
+
+            // ==========================================
+            // INIT
+            // ==========================================
+
+            // render inicial completo
+
+            registeredPlatforms.forEach(
+                platform => {
+                    viewerCounts[platform] = 0;
+                }
+            );
+
+            syncViewerEntries();
+
+            connectServerModes();
+
+            connectIframe();
+
+        })();
     </script>
 </body>
 
