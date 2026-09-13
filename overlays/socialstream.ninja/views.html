@@ -174,7 +174,9 @@
                 document.getElementById('platform-template');
 
             const params =
-                new URLSearchParams(window.location.search);
+                new URLSearchParams(
+                    window.location.search.toLowerCase()
+                );
 
             // ==========================================
             // CONFIG
@@ -339,6 +341,35 @@
                         .toString()
                         .toLowerCase()
                         .trim();
+
+                // YOUTUBE
+
+        if (
+            platform.includes('youtube') ||
+            platform.includes('yt') ||
+            platform.includes('youtubegaming') ||
+            platform.includes('youtubegaming')
+        ) {
+            return 'youtube';
+        }
+
+                // FACEBOOK
+
+        if (
+            platform.includes('facebook') ||
+            platform.includes('fb')
+        ) {
+            return 'facebook';
+        }
+
+        // TIKTOK
+
+        if (
+            platform.includes('tiktok') ||
+            platform.includes('tik_tok')
+        ) {
+            return 'tiktok';
+        }
 
                 return platform
                     .replace(
@@ -883,12 +914,10 @@
             // ==========================================
 
             function syncViewerEntries() {
-
                 let total = 0;
 
-                if (!params.has('hideTotal')) {
-                    // TOTAL sempre primeiro
-
+                // TOTAL sempre primeiro
+                if (!params.has('hidetotal')) {
                     setEntry({
                         id: 'viewer-total',
                         platform: 'total',
