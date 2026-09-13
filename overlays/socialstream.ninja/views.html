@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt-br">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -149,6 +150,7 @@
         }
     </style>
 </head>
+
 <body>
     <main id="platform_container"></main>
     <template id="platform-template">
@@ -160,7 +162,7 @@
     <script type="text/javascript">
         (() => {
             'use strict';
-          
+
             // ==========================================
             // DOM
             // ==========================================
@@ -212,11 +214,10 @@
             // plataformas registradas no SSN
             // renderizadas imediatamente
             const registeredPlatforms =
-                [
-                    'youtube',
-                    'twitch',
-                    'kick'
-                ];
+                params.get('platforms')
+                    ?.split(',')
+                    .map(platform => platform.trim())
+                    .filter(Boolean) || [];
 
             // evita duplicação
             const registeredPlatformMap =
@@ -338,59 +339,6 @@
                         .toString()
                         .toLowerCase()
                         .trim();
-
-                // YOUTUBE
-
-                if (
-                    platform.includes('youtube') ||
-                    platform.includes('yt') ||
-                    platform.includes('youtubegaming') ||
-                    platform.includes('youtubegaming')
-                ) {
-                    return 'youtube';
-                }
-
-                // TWITCH
-
-                if (
-                    platform.includes('twitch')
-                ) {
-                    return 'twitch';
-                }
-
-                // KICK
-
-                if (
-                    platform.includes('kick')
-                ) {
-                    return 'kick';
-                }
-
-                // FACEBOOK
-
-                if (
-                    platform.includes('facebook') ||
-                    platform.includes('fb')
-                ) {
-                    return 'facebook';
-                }
-
-                // TIKTOK
-
-                if (
-                    platform.includes('tiktok') ||
-                    platform.includes('tik_tok')
-                ) {
-                    return 'tiktok';
-                }
-
-                // TROVO
-
-                if (
-                    platform.includes('trovo')
-                ) {
-                    return 'trovo';
-                }
 
                 return platform
                     .replace(
@@ -938,15 +886,18 @@
 
                 let total = 0;
 
-                // TOTAL sempre primeiro
+                if (!params.has('hideTotal')) {
+                    // TOTAL sempre primeiro
 
-                setEntry({
-                    id: 'viewer-total',
-                    platform: 'total',
-                    label: 'Total Viewers',
-                    value: 0,
-                    order: 0
-                });
+                    setEntry({
+                        id: 'viewer-total',
+                        platform: 'total',
+                        label: 'Total Viewers',
+                        value: 0,
+                        order: 0
+                    });
+                }
+
 
                 registeredPlatforms.forEach(
                     (
