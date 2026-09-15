@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="pt-br">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -163,9 +162,41 @@
         (() => {
             'use strict';
 
-            // ==========================================
+            /*
+             * ============================================================
+             * SOCIAL STREAM NINJA - VIEWERS OVERLAY
+             * ============================================================
+             *
+             * Responsabilidades:
+             *
+             * 1. Conectar ao Social Stream Ninja.
+             * 2. Receber eventos viewer_update / viewer_updates.
+             * 3. Detectar plataformas automaticamente.
+             * 4. Manter o estado das visualizações.
+             * 5. Renderizar total + plataformas.
+             * 6. Reconectar WebSockets quando necessário.
+             * 7. Registrar informações úteis no console.
+             *
+             * Transporte suportado:
+             *
+             * - VDO.Ninja / iframe
+             * - WebSocket server
+             * - server2
+             * - server3
+             *
+             * URL examples:
+             *
+             * ?session=ABC123
+             * ?session=ABC123&platforms=youtube,twitch
+             * ?session=ABC123&hidetotal
+             * ?session=ABC123&debug
+             *
+             * ============================================================
+             */
+
+            // ============================================================
             // DOM
-            // ==========================================
+            // ============================================================
 
             const container =
                 document.getElementById('platform_container');
@@ -173,209 +204,222 @@
             const template =
                 document.getElementById('platform-template');
 
+            // ============================================================
+            // VALIDATION
+            // ============================================================
+
+            if (!container) {
+                console.error(
+                    '[VIEWERS][ERROR] #platform_container não encontrado.'
+                );
+
+                return;
+            }
+
+            if (!template) {
+                console.error(
+                    '[VIEWERS][ERROR] #platform-template não encontrado.'
+                );
+
+                return;
+            }
+
+            // ============================================================
+            // URL PARAMETERS
+            // ============================================================
+
             const params =
                 new URLSearchParams(
                     window.location.search.toLowerCase()
                 );
 
-            // ==========================================
-            // CONFIG
-            // ==========================================
+            // ============================================================
+            // DEBUG / LOGGING
+            // ============================================================
+
+            const DEBUG =
+                params.has('debug');
+
+            const LOG_PREFIX =
+                '[VIEWERS]';
+
+            function log(...args) {
+                console.log(
+                    LOG_PREFIX
+                    , ...args
+                );
+            }
+
+            function debug(...args) {
+                if (!DEBUG) {
+                    return;
+                }
+
+                console.debug(
+                    `${LOG_PREFIX}[DEBUG]`
+                    , ...args
+                );
+            }
+
+            function success(...args) {
+                console.log(
+                    `${LOG_PREFIX}[OK]`
+                    , ...args
+                );
+            }
+
+            function warn(...args) {
+                console.warn(
+                    `${LOG_PREFIX}[WARN]`
+                    , ...args
+                );
+            }
+
+            function error(...args) {
+                console.error(
+                    `${LOG_PREFIX}[ERROR]`
+                    , ...args
+                );
+            }
+
+            // ============================================================
+            // CONFIGURATION
+            // ============================================================
 
             const CONFIG = {
-                session:
-                    params.get('session') || '',
+                session: params.get('session') || '',
 
-                password:
-                    params.get('password') || 'false',
+                password: params.get('password') || 'false',
 
-                lanOnly:
-                    params.has('lanonly'),
+                lanOnly: params.has('lanonly'),
 
-                hasServerMode:
-                    params.has('server') ||
+                hideTotal: params.has('hidetotal'),
+
+                debug: DEBUG,
+
+                hasServerMode: params.has('server') ||
                     params.has('server2') ||
                     params.has('server3')
             };
 
-            // ==========================================
+            // ============================================================
             // STATE
-            // ==========================================
+            // ============================================================
 
-            const state = new Map();
-            const elements = new Map();
-            const sockets = [];
+            /*
+             * registeredPlatforms
+             *
+             * Ordem das plataformas exibidas.
+             *
+             * Pode começar através de:
+             *
+             * ?platforms=youtube,twitch,kick
+             *
+             * ou ser preenchida automaticamente
+             * quando o SSN enviar dados.
+             */
+            const registeredPlatforms = [];
 
-            let iframe = null;
-            let sequence = 0;
+            /*
+             * Evita plataformas duplicadas.
+             */
+            const registeredPlatformSet =
+                new Set();
 
-            // viewers atuais
+            /*
+             * Contagem atual por plataforma.
+             *
+             * Exemplo:
+             *
+             * {
+             *     youtube: 1250,
+             *     twitch: 430
+             * }
+             */
             const viewerCounts =
                 Object.create(null);
 
-            // plataformas registradas no SSN
-            // renderizadas imediatamente
-            const registeredPlatforms =
-                params.get('platforms')
-                    ?.split(',')
-                    .map(platform => platform.trim())
-                    .filter(Boolean) || [];
+            /*
+             * Entradas lógicas que serão renderizadas.
+             */
+            const entries =
+                new Map();
 
-            // evita duplicação
-            const registeredPlatformMap =
-                new Set(registeredPlatforms);
+            /*
+             * Elementos DOM correspondentes às entradas.
+             */
+            const elements =
+                new Map();
 
-            // ==========================================
-            // HELPERS
-            // ==========================================
+            /*
+             * Conexões WebSocket ativas.
+             */
+            const sockets = [];
 
-            const wait = ms =>
-                new Promise(resolve =>
-                    setTimeout(resolve, ms)
+            /*
+             * Iframe do VDO.Ninja.
+             */
+            let iframe = null;
+
+            /*
+             * Ordem de criação das entradas.
+             */
+            let sequence = 0;
+
+            /*
+             * Última ordem renderizada.
+             *
+             * Evita reorganizar o DOM sem necessidade.
+             */
+            let renderedOrder = '';
+
+            // ============================================================
+            // INITIAL PLATFORM REGISTRATION
+            // ============================================================
+
+            function registerInitialPlatforms() {
+
+                const raw =
+                    params.get('platforms');
+
+                if (!raw) {
+                    debug(
+                        'Nenhuma plataforma definida por ?platforms.'
+                    );
+
+                    return;
+                }
+
+                raw
+                    .split(',')
+                    .map(
+                        platform =>
+                            normalizePlatformName(platform)
+                    )
+                    .filter(Boolean)
+                    .forEach(
+                        registerPlatform
+                    );
+
+                log(
+                    'Plataformas definidas pela URL:'
+                    , registeredPlatforms
                 );
-
-            function parseNumber(value) {
-
-                if (
-                    typeof value === 'number' &&
-                    Number.isFinite(value)
-                ) {
-                    return value;
-                }
-
-                if (
-                    typeof value === 'string'
-                ) {
-
-                    const cleaned =
-                        value.replace(
-                            /[^0-9.-]/g,
-                            ''
-                        );
-
-                    if (!cleaned) {
-                        return null;
-                    }
-
-                    const parsed =
-                        parseFloat(cleaned);
-
-                    return Number.isFinite(parsed)
-                        ? parsed
-                        : null;
-                }
-
-                return null;
             }
 
-            function formatNumberShort(
-                number,
-                precision = 1
-            ) {
+            // ============================================================
+            // HELPERS
+            // ============================================================
 
-                number = Number(number);
+            function wait(ms) {
 
-                if (number < 1000) {
-                    return number.toString();
-                }
-
-                const suffixes =
-                    ['K', 'M', 'B', 'T'];
-
-                const suffixIndex =
-                    Math.floor(
-                        Math.log10(number) / 3
-                    ) - 1;
-
-                const shortValue =
-                    number /
-                    Math.pow(
-                        1000,
-                        suffixIndex + 1
-                    );
-
-                return `${parseFloat(
-                    shortValue.toFixed(
-                        precision
-                    )
-                )}${suffixes[suffixIndex]}`;
-            }
-
-            function normalizeEventName(
-                eventName
-            ) {
-
-                if (
-                    typeof eventName !==
-                    'string'
-                ) {
-                    return '';
-                }
-
-                return eventName
-                    .toLowerCase()
-                    .replace(
-                        /[^a-z0-9]+/g,
-                        '_'
-                    )
-                    .replace(
-                        /_+/g,
-                        '_'
-                    )
-                    .replace(
-                        /^_+|_+$/g,
-                        ''
-                    );
-            }
-
-            function normalizePlatformName(
-                platform
-            ) {
-
-                if (!platform) {
-                    return '';
-                }
-
-                platform =
-                    platform
-                        .toString()
-                        .toLowerCase()
-                        .trim();
-
-                // YOUTUBE
-
-        if (
-            platform.includes('youtube') ||
-            platform.includes('yt') ||
-            platform.includes('youtubegaming') ||
-            platform.includes('youtubegaming')
-        ) {
-            return 'youtube';
-        }
-
-                // FACEBOOK
-
-        if (
-            platform.includes('facebook') ||
-            platform.includes('fb')
-        ) {
-            return 'facebook';
-        }
-
-        // TIKTOK
-
-        if (
-            platform.includes('tiktok') ||
-            platform.includes('tik_tok')
-        ) {
-            return 'tiktok';
-        }
-
-                return platform
-                    .replace(
-                        /[^a-z0-9]/g,
-                        ''
-                    );
+                return new Promise(
+                    resolve =>
+                        setTimeout(
+                            resolve
+                            , ms
+                        )
+                );
             }
 
             function isPlainObject(value) {
@@ -387,622 +431,497 @@
                 );
             }
 
-            // ==========================================
+            function parseNumber(value) {
+
+                if (
+                    typeof value === 'number' &&
+                    Number.isFinite(value)
+                ) {
+                    return value;
+                }
+
+                if (
+                    typeof value !== 'string'
+                ) {
+                    return null;
+                }
+
+                const cleaned =
+                    value.replace(
+                        /[^0-9.-]/g
+                        , ''
+                    );
+
+                if (!cleaned) {
+                    return null;
+                }
+
+                const parsed =
+                    Number(cleaned);
+
+                return Number.isFinite(parsed) ?
+                    parsed :
+                    null;
+            }
+
+            function formatNumberShort(
+                value
+                , precision = 1
+            ) {
+
+                const number =
+                    Number(value);
+
+                if (
+                    !Number.isFinite(number)
+                ) {
+                    return '0';
+                }
+
+                if (
+                    number < 1000
+                ) {
+                    return number.toString();
+                }
+
+                const suffixes = [
+                    'K'
+                    , 'M'
+                    , 'B'
+                    , 'T'
+                ];
+
+                const suffixIndex =
+                    Math.floor(
+                        Math.log10(number) / 3
+                    ) - 1;
+
+                const safeIndex =
+                    Math.min(
+                        suffixIndex
+                        , suffixes.length - 1
+                    );
+
+                const divisor =
+                    Math.pow(
+                        1000
+                        , safeIndex + 1
+                    );
+
+                const shortValue =
+                    number / divisor;
+
+                return (
+                    `${parseFloat(
+                        shortValue.toFixed(
+                            precision
+                        )
+                    )}${suffixes[safeIndex]}`
+                );
+            }
+
+            function normalizeEventName(
+                eventName
+            ) {
+
+                if (
+                    typeof eventName !== 'string'
+                ) {
+                    return '';
+                }
+
+                return eventName
+                    .toLowerCase()
+                    .replace(
+                        /[^a-z0-9]+/g
+                        , '_'
+                    )
+                    .replace(
+                        /_+/g
+                        , '_'
+                    )
+                    .replace(
+                        /^_+|_+$/g
+                        , ''
+                    );
+            }
+
+            /*
+             * Converte diferentes formas de nome
+             * para o identificador usado pelo overlay.
+             *
+             * Exemplos:
+             *
+             * YouTube       -> youtube
+             * youtube.com   -> youtube
+             * YouTube Gaming -> youtube
+             * FB            -> facebook
+             * Tik Tok       -> tiktok
+             */
+            function normalizePlatformName(platform) {
+
+                if (
+                    platform === null ||
+                    platform === undefined
+                ) {
+                    return '';
+                }
+
+                const original =
+                    platform.toString();
+
+                const normalized =
+                    original
+                        .toLowerCase()
+                        .trim();
+
+
+                if (!normalized) {
+                    return '';
+                }
+
+
+                // ========================================================
+                // YOUTUBE
+                // ========================================================
+
+                if (
+                    normalized.includes('youtube') ||
+                    normalized === 'yt' ||
+                    normalized.includes('youtubegaming')
+                ) {
+                    return 'youtube';
+                }
+
+
+                // ========================================================
+                // TWITCH
+                // ========================================================
+
+                if (
+                    normalized.includes('twitch')
+                ) {
+                    return 'twitch';
+                }
+
+
+                // ========================================================
+                // KICK
+                // ========================================================
+
+                if (
+                    normalized === 'kick' ||
+                    normalized.includes('kick.com') ||
+                    normalized.includes('kick streaming')
+                ) {
+                    return 'kick';
+                }
+
+
+                // ========================================================
+                // FACEBOOK
+                // ========================================================
+
+                if (
+                    normalized.includes('facebook') ||
+                    normalized === 'fb'
+                ) {
+                    return 'facebook';
+                }
+
+
+                // ========================================================
+                // TIKTOK
+                // ========================================================
+
+                if (
+                    normalized.includes('tiktok') ||
+                    normalized.includes('tik_tok')
+                ) {
+                    return 'tiktok';
+                }
+
+
+                // ========================================================
+                // FALLBACK
+                // ========================================================
+
+                const fallback =
+                    normalized.replace(
+                        /[^a-z0-9]/g,
+                        ''
+                    );
+
+
+                /*
+                * Mostra no console quando encontramos
+                * algo que não foi mapeado.
+                *
+                * Isso facilita adicionar novas plataformas
+                * no futuro sem precisar descobrir
+                * silenciosamente por que algo não apareceu.
+                */
+                if (
+                    fallback &&
+                    DEBUG
+                ) {
+
+                    console.debug(
+                        '[VIEWERS][DEBUG] Plataforma não mapeada:',
+                        {
+                            original,
+                            normalized,
+                            fallback
+                        }
+                    );
+                }
+
+
+                return fallback;
+            }
+
+            // ============================================================
             // PLATFORM REGISTRATION
-            // ==========================================
+            // ============================================================
 
             function registerPlatform(
                 platform
             ) {
 
-                platform =
+                const normalized =
                     normalizePlatformName(
                         platform
                     );
 
-                if (!platform) {
-                    return;
+                if (!normalized) {
+                    return false;
                 }
 
                 if (
-                    registeredPlatformMap.has(
-                        platform
+                    registeredPlatformSet.has(
+                        normalized
                     )
                 ) {
-                    return;
+                    return false;
                 }
 
-                registeredPlatformMap.add(
-                    platform
+                registeredPlatformSet.add(
+                    normalized
                 );
 
                 registeredPlatforms.push(
-                    platform
+                    normalized
                 );
 
                 if (
-                    viewerCounts[
-                    platform
-                    ] === undefined
+                    viewerCounts[normalized] ===
+                    undefined
                 ) {
-                    viewerCounts[
-                        platform
-                    ] = 0;
+                    viewerCounts[normalized] = 0;
                 }
+
+                log(
+                    'Nova plataforma registrada:'
+                    , normalized
+                );
+
+                debug(
+                    'Plataformas atuais:'
+                    , [...registeredPlatforms]
+                );
+
+                return true;
             }
 
+            // ============================================================
+            // PLATFORM DISCOVERY
+            // ============================================================
+
+            /*
+             * Procura plataformas em vários locais possíveis
+             * do payload.
+             *
+             * Não depende exclusivamente de data.type.
+             */
             function registerPlatformsFromPayload(
                 data
             ) {
 
-                const possiblePlatforms = [];
-
-                if (data.platform) {
-                    possiblePlatforms.push(
-                        data.platform
-                    );
+                if (!data) {
+                    return;
                 }
 
-                if (data.type) {
-                    possiblePlatforms.push(
-                        data.type
-                    );
-                }
+                const candidates = [];
+
+                // --------------------------------------------------------
+                // TOP LEVEL
+                // --------------------------------------------------------
+
+                candidates.push(
+                    data.platform
+                );
+
+                candidates.push(
+                    data.type
+                );
+
+                // --------------------------------------------------------
+                // META OBJECT
+                // --------------------------------------------------------
+
+                /*
+                 * viewer_updates:
+                 *
+                 * {
+                 *     event: "viewer_updates",
+                 *     meta: {
+                 *         youtube: 123,
+                 *         twitch: 456
+                 *     }
+                 * }
+                 */
 
                 if (
                     isPlainObject(data.meta)
                 ) {
 
                     Object.keys(data.meta)
-                        .forEach(platform => {
-                            possiblePlatforms.push(
-                                platform
-                            );
-                        });
+                        .forEach(
+                            platform =>
+                                candidates.push(
+                                    platform
+                                )
+                        );
                 }
 
-                // procura em arrays vindos do SSN
+                // --------------------------------------------------------
+                // SOURCE ARRAYS
+                // --------------------------------------------------------
 
                 const sourceArrays = [
-                    data.sources,
-                    data.accounts,
-                    data.channels,
-                    data.destinations
+                    data.sources
+                    , data.accounts
+                    , data.channels
+                    , data.destinations
                 ];
 
-                sourceArrays.forEach(array => {
-
-                    if (!Array.isArray(array)) {
-                        return;
-                    }
-
-                    array.forEach(item => {
+                sourceArrays.forEach(
+                    array => {
 
                         if (
-                            typeof item === 'string'
+                            !Array.isArray(array)
                         ) {
-                            possiblePlatforms.push(
-                                item
-                            );
                             return;
                         }
 
-                        if (
-                            typeof item === 'object' &&
-                            item
-                        ) {
+                        array.forEach(
+                            item => {
 
-                            possiblePlatforms.push(
-                                item.type
-                            );
+                                if (
+                                    typeof item ===
+                                    'string'
+                                ) {
 
-                            possiblePlatforms.push(
-                                item.platform
-                            );
+                                    candidates.push(
+                                        item
+                                    );
 
-                            possiblePlatforms.push(
-                                item.name
-                            );
-                        }
-                    });
-                });
+                                    return;
+                                }
 
-                possiblePlatforms.forEach(
-                    registerPlatform
+                                if (
+                                    item &&
+                                    typeof item ===
+                                    'object'
+                                ) {
+
+                                    candidates.push(
+                                        item.type
+                                    );
+
+                                    candidates.push(
+                                        item.platform
+                                    );
+
+                                    candidates.push(
+                                        item.name
+                                    );
+                                }
+                            }
+                        );
+                    }
                 );
+
+                // --------------------------------------------------------
+                // REGISTER
+                // --------------------------------------------------------
+
+                candidates
+                    .filter(Boolean)
+                    .forEach(
+                        registerPlatform
+                    );
             }
 
-            // ==========================================
-            // ENTRY
-            // ==========================================
+            // ============================================================
+            // ENTRY STATE
+            // ============================================================
 
-            function setEntry({
-                id,
-                platform,
-                value,
-                label,
-                order
-            }) {
+            function setEntry(
+                {
+                    id
+                    , platform
+                    , value
+                    , label
+                    , order
+                }) {
+
                 if (!id) {
                     return;
                 }
 
                 const existing =
-                    state.get(id);
+                    entries.get(id);
 
-                // Reutiliza o mesmo objeto.
-                // Não cria um novo objeto a cada atualização.
                 if (existing) {
-                    existing.platform = platform;
-                    existing.value = value;
-                    existing.label = label;
-                    existing.order = order;
+
+                    existing.platform =
+                        platform;
+
+                    existing.value =
+                        value;
+
+                    existing.label =
+                        label;
+
+                    existing.order =
+                        order;
 
                     return;
                 }
 
-                // Só cria o objeto uma única vez.
-                state.set(id, {
-                    id,
-                    platform,
-                    value,
-                    label,
-                    order,
-                    sequence: ++sequence
-                });
-            }
-
-
-            // ==========================================
-            // CREATE ELEMENT
-            // ==========================================
-
-            function createPlatformElement(entry) {
-                const fragment =
-                    template.content.cloneNode(true);
-
-                const base =
-                    fragment.querySelector(
-                        '.platform'
-                    );
-
-                const icon =
-                    fragment.querySelector(
-                        '.icon'
-                    );
-
-                const views =
-                    fragment.querySelector(
-                        '.views'
-                    );
-
-                // Usa o ID lógico da entrada no DOM.
-                base.dataset.id =
-                    entry.id;
-
-                base.dataset.platform =
-                    entry.platform;
-
-                base.classList.add(
-                    entry.platform
-                );
-
-                icon?.classList.add(
-                    entry.platform
-                );
-
-                views.dataset.value =
-                    entry.value;
-
-                views.textContent =
-                    formatNumberShort(
-                        entry.value
-                    );
-
-                container.appendChild(
-                    base
-                );
-
-                // IMPORTANTE:
-                // usa o mesmo ID usado pelo state.
-                elements.set(
-                    entry.id,
-                    {
-                        base,
-                        views
+                entries.set(
+                    id
+                    , {
+                        id
+                        , platform
+                        , value
+                        , label
+                        , order
+                        , sequence:
+                            ++sequence
                     }
                 );
 
-                return {
-                    base,
-                    views
-                };
-            }
-
-
-            // ==========================================
-            // UPDATE ELEMENT
-            // ==========================================
-
-            function updatePlatformElement(entry) {
-                let element =
-                    elements.get(
-                        entry.id
-                    );
-
-                // Cria somente se ainda não existir.
-                if (!element) {
-                    element =
-                        createPlatformElement(
-                            entry
-                        );
-
-                    return;
-                }
-
-                const currentValue =
-                    Number(
-                        element.views.dataset
-                            .value
-                    );
-
-                // Nada mudou.
-                if (
-                    currentValue ===
-                    entry.value
-                ) {
-                    return;
-                }
-
-                element.views.dataset.value =
-                    entry.value;
-
-                element.views.textContent =
-                    formatNumberShort(
-                        entry.value
-                    );
-
-                animateUpdate(
-                    element.views
+                debug(
+                    'Nova entrada:'
+                    , id
                 );
             }
 
-
-            // ==========================================
-            // RENDER
-            // ==========================================
-
-            let renderedOrder = '';
-
-            function render() {
-                const entries =
-                    [...state.values()]
-                        .sort(
-                            (a, b) => {
-                                if (
-                                    a.order !==
-                                    b.order
-                                ) {
-                                    return (
-                                        a.order -
-                                        b.order
-                                    );
-                                }
-
-                                return (
-                                    a.sequence -
-                                    b.sequence
-                                );
-                            }
-                        );
-
-                // Atualiza somente os valores.
-                entries.forEach(
-                    updatePlatformElement
-                );
-
-                // Descobre a ordem atual.
-                const nextOrder =
-                    entries
-                        .map(
-                            entry =>
-                                entry.id
-                        )
-                        .join('|');
-
-                // Se a ordem não mudou,
-                // não toca no DOM.
-                if (
-                    nextOrder ===
-                    renderedOrder
-                ) {
-                    return;
-                }
-
-                renderedOrder =
-                    nextOrder;
-
-                // Só reorganiza o DOM quando
-                // a ordem realmente mudou.
-                entries.forEach(
-                    (entry, index) => {
-                        const element =
-                            elements.get(
-                                entry.id
-                            );
-
-                        if (
-                            !element?.base
-                        ) {
-                            return;
-                        }
-
-                        const current =
-                            container.children[
-                            index
-                            ];
-
-                        // Já está na posição correta.
-                        if (
-                            current ===
-                            element.base
-                        ) {
-                            return;
-                        }
-
-                        container.insertBefore(
-                            element.base,
-                            current ?? null
-                        );
-                    }
-                );
-            }
-
-
-            // ==========================================
-            // PAYLOAD
-            // ==========================================
-
-            function processPayload(data) {
-                if (
-                    !data ||
-                    typeof data !==
-                    'object'
-                ) {
-                    return;
-                }
-
-                if (
-                    data.content &&
-                    typeof data.content ===
-                    'object'
-                ) {
-                    data = data.content;
-                }
-
-                // Registra plataformas detectadas.
-                registerPlatformsFromPayload(
-                    data
-                );
-
-                const eventName =
-                    normalizeEventName(
-                        data.event ||
-                        data.type ||
-                        ''
-                    );
-
-                const meta =
-                    data.meta;
-
-                // ==========================================
-                // SINGLE PLATFORM
-                // ==========================================
-
-                if (
-                    eventName ===
-                    'viewer_update'
-                ) {
-                    const platform =
-                        normalizePlatformName(
-                            data.platform ||
-                            data.type ||
-                            ''
-                        );
-
-                    const count =
-                        parseNumber(meta);
-
-                    if (
-                        !platform ||
-                        count === null
-                    ) {
-                        return;
-                    }
-
-                    registerPlatform(
-                        platform
-                    );
-
-                    viewerCounts[
-                        platform
-                    ] = count;
-
-                    syncViewerEntries();
-
-                    return;
-                }
-
-
-                // ==========================================
-                // MULTIPLE PLATFORMS
-                // ==========================================
-
-                if (
-                    eventName ===
-                    'viewer_updates'
-                ) {
-                    if (
-                        !isPlainObject(meta)
-                    ) {
-                        syncViewerEntries();
-
-                        return;
-                    }
-
-                    // Reset apenas das plataformas conhecidas.
-                    registeredPlatforms.forEach(
-                        platform => {
-                            viewerCounts[
-                                platform
-                            ] = 0;
-                        }
-                    );
-
-                    Object.entries(meta)
-                        .forEach(
-                            ([platform, value]) => {
-                                platform =
-                                    normalizePlatformName(
-                                        platform
-                                    );
-
-                                const count =
-                                    parseNumber(
-                                        value
-                                    );
-
-                                if (
-                                    !platform ||
-                                    count === null
-                                ) {
-                                    return;
-                                }
-
-                                registerPlatform(
-                                    platform
-                                );
-
-                                viewerCounts[
-                                    platform
-                                ] =
-                                    (
-                                        viewerCounts[
-                                        platform
-                                        ] || 0
-                                    ) + count;
-                            }
-                        );
-
-                    syncViewerEntries();
-
-                    // IMPORTANTE:
-                    // impede que o fallback abaixo
-                    // execute uma segunda sincronização.
-                    return;
-                }
-
-                // ==========================================
-                // FALLBACK
-                // ==========================================
-
-                syncViewerEntries();
-            }
-
-            // ==========================================
-            // VIEWERS
-            // ==========================================
-
-            function syncViewerEntries() {
-                let total = 0;
-
-                // TOTAL sempre primeiro
-                if (!params.has('hidetotal')) {
-                    setEntry({
-                        id: 'viewer-total',
-                        platform: 'total',
-                        label: 'Total Viewers',
-                        value: 0,
-                        order: 0
-                    });
-                }
-
-
-                registeredPlatforms.forEach(
-                    (
-                        platform,
-                        index
-                    ) => {
-
-                        const numeric =
-                            parseNumber(
-                                viewerCounts[
-                                platform
-                                ] ?? 0
-                            ) ?? 0;
-
-                        total += numeric;
-
-                        setEntry({
-                            id:
-                                `viewer-${platform}`,
-
-                            platform,
-
-                            label:
-                                `${platform.toUpperCase()} Viewers`,
-
-                            value: numeric,
-
-                            // ordem exata do SSN
-                            order:
-                                index + 1
-                        });
-                    }
-                );
-
-                // atualiza total
-
-                const totalEntry =
-                    state.get(
-                        'viewer-total'
-                    );
-
-                if (totalEntry) {
-                    totalEntry.value = total;
-                }
-
-                render();
-            }
-
-            // ==========================================
-            // ANIMATION
-            // ==========================================
-
-            async function animateUpdate(
-                element
-            ) {
-
-                element.classList.remove(
-                    'animate-pop'
-                );
-
-                void element.offsetWidth;
-
-                element.classList.add(
-                    'animate-pop'
-                );
-
-                await wait(400);
-
-                element.classList.remove(
-                    'animate-pop'
-                );
-            }
-
-            // ==========================================
-            // CREATE ELEMENT
-            // ==========================================
+            // ============================================================
+            // DOM CREATION
+            // ============================================================
 
             function createPlatformElement(
                 entry
@@ -1028,6 +947,25 @@
                         '.views'
                     );
 
+                if (
+                    !base ||
+                    !views
+                ) {
+
+                    error(
+                        'Template inválido. .platform ou .views não encontrados.'
+                    );
+
+                    return null;
+                }
+
+                // --------------------------------------------------------
+                // DOM DATA
+                // --------------------------------------------------------
+
+                base.dataset.id =
+                    entry.id;
+
                 base.dataset.platform =
                     entry.platform;
 
@@ -1035,9 +973,15 @@
                     entry.platform
                 );
 
-                icon?.classList.add(
-                    entry.platform
-                );
+                if (icon) {
+                    icon.classList.add(
+                        entry.platform
+                    );
+                }
+
+                // --------------------------------------------------------
+                // INITIAL VALUE
+                // --------------------------------------------------------
 
                 views.dataset.value =
                     entry.value;
@@ -1047,43 +991,67 @@
                         entry.value
                     );
 
+                // --------------------------------------------------------
+                // INSERT
+                // --------------------------------------------------------
+
                 container.appendChild(
                     base
                 );
 
+                const element = {
+                    base
+                    , views
+                };
+
                 elements.set(
-                    entry.platform,
-                    {
-                        base,
-                        views
-                    }
+                    entry.id
+                    , element
                 );
+
+                debug(
+                    'Elemento criado:'
+                    , entry.id
+                    , entry.platform
+                );
+
+                return element;
             }
 
-            // ==========================================
-            // UPDATE ELEMENT
-            // ==========================================
+            // ============================================================
+            // DOM UPDATE
+            // ============================================================
 
             function updatePlatformElement(
                 entry
             ) {
 
-                const element =
+                let element =
                     elements.get(
-                        entry.platform
+                        entry.id
                     );
 
+                // --------------------------------------------------------
+                // CREATE
+                // --------------------------------------------------------
+
                 if (!element) {
-                    createPlatformElement(
-                        entry
-                    );
+
+                    element =
+                        createPlatformElement(
+                            entry
+                        );
+
                     return;
                 }
 
+                // --------------------------------------------------------
+                // VALUE
+                // --------------------------------------------------------
+
                 const currentValue =
                     Number(
-                        element.views.dataset
-                            .value
+                        element.views.dataset.value
                     );
 
                 if (
@@ -1092,6 +1060,10 @@
                 ) {
                     return;
                 }
+
+                // --------------------------------------------------------
+                // UPDATE
+                // --------------------------------------------------------
 
                 element.views.dataset.value =
                     entry.value;
@@ -1104,74 +1076,414 @@
                 animateUpdate(
                     element.views
                 );
+
+                debug(
+                    'Contagem atualizada:'
+                    , entry.platform
+                    , currentValue
+                    , '→'
+                    , entry.value
+                );
             }
 
-            // ==========================================
+            // ============================================================
             // RENDER
-            // ==========================================
+            // ============================================================
 
             function render() {
 
-                const entries =
-                    [...state.values()]
-                        .sort(
-                            (a, b) => {
+                const orderedEntries = [...entries.values()]
+                    .sort(
+                        (a, b) => {
 
-                                if (
-                                    a.order !==
-                                    b.order
-                                ) {
-                                    return (
-                                        a.order -
-                                        b.order
-                                    );
-                                }
+                            if (
+                                a.order !==
+                                b.order
+                            ) {
 
                                 return (
-                                    a.sequence -
-                                    b.sequence
+                                    a.order -
+                                    b.order
                                 );
                             }
-                        );
 
-                // renderiza tudo primeiro
+                            return (
+                                a.sequence -
+                                b.sequence
+                            );
+                        }
+                    );
 
-                entries.forEach(
+                // --------------------------------------------------------
+                // UPDATE VALUES
+                // --------------------------------------------------------
+
+                orderedEntries.forEach(
                     updatePlatformElement
                 );
 
-                // reorganiza DOM
+                // --------------------------------------------------------
+                // CALCULATE ORDER
+                // --------------------------------------------------------
 
-                entries.forEach(entry => {
+                const nextOrder =
+                    orderedEntries
+                        .map(
+                            entry =>
+                                entry.id
+                        )
+                        .join('|');
 
-                    const element =
-                        elements.get(
-                            entry.platform
-                        );
-
-                    if (
-                        element?.base
-                    ) {
-                        container.appendChild(
-                            element.base
-                        );
-                    }
-                });
-            }
-
-            // ==========================================
-            // PAYLOAD
-            // ==========================================
-
-            function processPayload(data) {
-
+                /*
+                 * Nada mudou na ordem.
+                 *
+                 * Não mexemos no DOM.
+                 */
                 if (
-                    !data ||
-                    typeof data !==
-                    'object'
+                    nextOrder ===
+                    renderedOrder
                 ) {
                     return;
                 }
+
+                renderedOrder =
+                    nextOrder;
+
+                // --------------------------------------------------------
+                // REORDER DOM
+                // --------------------------------------------------------
+
+                orderedEntries.forEach(
+                    (entry, index) => {
+
+                        const element =
+                            elements.get(
+                                entry.id
+                            );
+
+                        if (
+                            !element?.base
+                        ) {
+                            return;
+                        }
+
+                        const current =
+                            container.children[
+                            index
+                            ];
+
+                        if (
+                            current ===
+                            element.base
+                        ) {
+                            return;
+                        }
+
+                        container.insertBefore(
+                            element.base
+                            , current || null
+                        );
+                    }
+                );
+
+                debug(
+                    'DOM reorganizado:'
+                    , nextOrder
+                );
+            }
+
+            // ============================================================
+            // VIEWER STATE
+            // ============================================================
+
+            function syncViewerEntries() {
+
+                let total = 0;
+
+                // --------------------------------------------------------
+                // TOTAL
+                // --------------------------------------------------------
+
+                if (
+                    !CONFIG.hideTotal
+                ) {
+
+                    setEntry(
+                        {
+                            id: 'viewer-total',
+
+                            platform: 'total',
+
+                            label: 'Total Viewers',
+
+                            value: 0,
+
+                            order: 0
+                        });
+                }
+
+                // --------------------------------------------------------
+                // PLATFORMS
+                // --------------------------------------------------------
+
+                registeredPlatforms.forEach(
+                    (
+                        platform
+                        , index
+                    ) => {
+
+                        const count =
+                            parseNumber(
+                                viewerCounts[
+                                platform
+                                ]
+                            ) ?? 0;
+
+                        total += count;
+
+                        setEntry(
+                            {
+                                id: `viewer-${platform}`,
+
+                                platform,
+
+                                label: `${platform.toUpperCase()} Viewers`,
+
+                                value: count,
+
+                                order: index + 1
+                            });
+                    }
+                );
+
+                // --------------------------------------------------------
+                // TOTAL VALUE
+                // --------------------------------------------------------
+
+                if (
+                    !CONFIG.hideTotal
+                ) {
+
+                    const totalEntry =
+                        entries.get(
+                            'viewer-total'
+                        );
+
+                    if (totalEntry) {
+                        totalEntry.value =
+                            total;
+                    }
+                }
+
+                debug(
+                    'Viewer state:'
+                    , {
+                        total
+                        , platforms:
+                        {
+                            ...viewerCounts
+                        }
+                    }
+                );
+
+                render();
+            }
+
+            // ============================================================
+            // VIEWER_UPDATE
+            // ============================================================
+
+            function processSingleViewerUpdate(
+                data
+            ) {
+
+                const platform =
+                    normalizePlatformName(
+                        data.platform ||
+                        data.type ||
+                        ''
+                    );
+
+                const count =
+                    parseNumber(
+                        data.meta
+                    );
+
+                if (!platform) {
+
+                    warn(
+                        'viewer_update recebido sem plataforma.'
+                        , data
+                    );
+
+                    return;
+                }
+
+                if (
+                    count === null
+                ) {
+
+                    warn(
+                        'viewer_update recebido com contagem inválida.'
+                        , data
+                    );
+
+                    return;
+                }
+
+                registerPlatform(
+                    platform
+                );
+
+                viewerCounts[
+                    platform
+                ] = count;
+
+                log(
+                    'Viewer update:'
+                    , platform
+                    , '='
+                    , count
+                );
+
+                syncViewerEntries();
+            }
+
+            // ============================================================
+            // VIEWER_UPDATES
+            // ============================================================
+
+            function processViewerUpdates(
+                data
+            ) {
+
+                if (
+                    !isPlainObject(data.meta)
+                ) {
+
+                    warn(
+                        'viewer_updates recebido sem meta válido.'
+                        , data
+                    );
+
+                    return;
+                }
+
+                /*
+                 * IMPORTANTE:
+                 *
+                 * viewer_updates é um SNAPSHOT completo.
+                 *
+                 * Portanto, removemos as contagens anteriores
+                 * antes de processar o novo estado.
+                 */
+                Object.keys(
+                    viewerCounts
+                ).forEach(
+                    platform => {
+                        delete viewerCounts[
+                            platform
+                        ];
+                    }
+                );
+
+                const snapshot = {};
+
+                Object.entries(
+                    data.meta
+                ).forEach(
+                    (
+                        [
+                            rawPlatform
+                            , rawValue
+                        ]
+                    ) => {
+
+                        const platform =
+                            normalizePlatformName(
+                                rawPlatform
+                            );
+
+                        const count =
+                            parseNumber(
+                                rawValue
+                            );
+
+                        if (!platform) {
+
+                            warn(
+                                'Plataforma inválida em viewer_updates:'
+                                , rawPlatform
+                            );
+
+                            return;
+                        }
+
+                        if (
+                            count === null
+                        ) {
+
+                            warn(
+                                'Contagem inválida:'
+                                , rawPlatform
+                                , rawValue
+                            );
+
+                            return;
+                        }
+
+                        registerPlatform(
+                            platform
+                        );
+
+                        viewerCounts[
+                            platform
+                        ] = count;
+
+                        snapshot[
+                            platform
+                        ] = count;
+                    }
+                );
+
+                log(
+                    'Viewer snapshot recebido:'
+                    , snapshot
+                );
+
+                syncViewerEntries();
+            }
+
+            // ============================================================
+            // PAYLOAD PROCESSING
+            // ============================================================
+
+            function processPayload(
+                payload
+            ) {
+
+                if (
+                    !payload ||
+                    typeof payload !== 'object'
+                ) {
+
+                    warn(
+                        'Payload ignorado: não é um objeto.'
+                        , payload
+                    );
+
+                    return;
+                }
+
+                /*
+                 * Alguns transportes podem entregar:
+                 *
+                 * {
+                 *     content: {...}
+                 * }
+                 */
+                let data =
+                    payload;
 
                 if (
                     data.content &&
@@ -1179,170 +1491,145 @@
                     'object'
                 ) {
 
-                    data = data.content;
+                    data =
+                        data.content;
                 }
 
-                // registra plataformas detectadas
+                // --------------------------------------------------------
+                // DISCOVERY
+                // --------------------------------------------------------
 
                 registerPlatformsFromPayload(
                     data
                 );
 
+                // --------------------------------------------------------
+                // EVENT
+                // --------------------------------------------------------
+
                 const eventName =
                     normalizeEventName(
-                        data.event ||
-                        data.type ||
-                        ''
+                        data.event
                     );
 
-                const meta =
-                    data.meta;
+                /*
+                 * IMPORTANTE:
+                 *
+                 * data.type NÃO é o nome do evento.
+                 *
+                 * data.type = plataforma
+                 *
+                 * data.event = viewer_update / viewer_updates
+                 */
+                debug(
+                    'Payload processado:'
+                    , {
+                        event: data.event,
 
-                // ==========================================
-                // SINGLE PLATFORM
-                // ==========================================
+                        normalizedEvent: eventName,
+
+                        type: data.type,
+
+                        platform: data.platform,
+
+                        meta: data.meta
+                    }
+                );
+
+                // --------------------------------------------------------
+                // VIEWER UPDATE
+                // --------------------------------------------------------
 
                 if (
                     eventName ===
                     'viewer_update'
                 ) {
 
-                    const platform =
-                        normalizePlatformName(
-                            data.platform ||
-                            data.type ||
-                            ''
-                        );
-
-                    const count =
-                        parseNumber(meta);
-
-                    if (
-                        !platform ||
-                        count === null
-                    ) {
-                        return;
-                    }
-
-                    registerPlatform(
-                        platform
+                    processSingleViewerUpdate(
+                        data
                     );
-
-                    // soma múltiplas lives da mesma plataforma
-
-                    viewerCounts[
-                        platform
-                    ] = count;
-
-                    syncViewerEntries();
 
                     return;
                 }
 
-                // ==========================================
-                // MULTIPLE PLATFORMS
-                // ==========================================
+                // --------------------------------------------------------
+                // VIEWER UPDATES
+                // --------------------------------------------------------
 
                 if (
                     eventName ===
                     'viewer_updates'
                 ) {
 
-                    if (
-                        !isPlainObject(meta)
-                    ) {
-                        syncViewerEntries();
-                        return;
-                    }
-
-                    // reset apenas das plataformas conhecidas
-
-                    registeredPlatforms.forEach(
-                        platform => {
-                            viewerCounts[
-                                platform
-                            ] = 0;
-                        }
+                    processViewerUpdates(
+                        data
                     );
 
-                    Object.entries(meta)
-                        .forEach(
-                            ([platform, value]) => {
-
-                                platform =
-                                    normalizePlatformName(
-                                        platform
-                                    );
-
-                                const count =
-                                    parseNumber(
-                                        value
-                                    );
-
-                                if (
-                                    !platform ||
-                                    count === null
-                                ) {
-                                    return;
-                                }
-
-                                registerPlatform(
-                                    platform
-                                );
-
-                                // soma múltiplas entradas
-
-                                viewerCounts[
-                                    platform
-                                ] =
-                                    (
-                                        viewerCounts[
-                                        platform
-                                        ] || 0
-                                    ) + count;
-                            }
-                        );
-
-                    syncViewerEntries();
+                    return;
                 }
 
-                // fallback
-
-                syncViewerEntries();
+                /*
+                 * Outros eventos podem passar pelo overlay.
+                 *
+                 * Não tratamos esses eventos como contagem.
+                 */
+                debug(
+                    'Evento ignorado pelo contador:'
+                    , eventName || '(sem evento)'
+                );
             }
 
-            // ==========================================
+            // ============================================================
             // INCOMING DATA
-            // ==========================================
+            // ============================================================
 
             function processIncomingData(
                 raw
             ) {
 
-                if (
-                    !raw ||
-                    typeof raw !==
-                    'object'
-                ) {
+                if (!raw) {
                     return;
                 }
 
+                /*
+                 * Formato:
+                 *
+                 * {
+                 *     dataReceived: {
+                 *         overlayNinja: {...}
+                 *     }
+                 * }
+                 */
                 if (
                     raw.dataReceived
                         ?.overlayNinja
                 ) {
 
+                    debug(
+                        'Payload recebido via dataReceived.overlayNinja.'
+                    );
+
                     processPayload(
-                        raw.dataReceived
-                            .overlayNinja
+                        raw.dataReceived.overlayNinja
                     );
 
                     return;
                 }
 
+                /*
+                 * Formato:
+                 *
+                 * {
+                 *     overlayNinja: {...}
+                 * }
+                 */
                 if (
                     raw.overlayNinja
                 ) {
+
+                    debug(
+                        'Payload recebido via overlayNinja.'
+                    );
 
                     processPayload(
                         raw.overlayNinja
@@ -1351,19 +1638,81 @@
                     return;
                 }
 
-                processPayload(raw);
+                /*
+                 * Payload já está no formato SSN.
+                 */
+                debug(
+                    'Payload recebido diretamente.'
+                );
+
+                processPayload(
+                    raw
+                );
             }
 
-            // ==========================================
-            // IFRAME
-            // ==========================================
+            // ============================================================
+            // ANIMATION
+            // ============================================================
+
+            async function animateUpdate(
+                element
+            ) {
+
+                if (!element) {
+                    return;
+                }
+
+                element.classList.remove(
+                    'animate-pop'
+                );
+
+                /*
+                 * Força o browser a reconhecer
+                 * a remoção antes de adicionar novamente.
+                 */
+                void element.offsetWidth;
+
+                element.classList.add(
+                    'animate-pop'
+                );
+
+                await wait(400);
+
+                element.classList.remove(
+                    'animate-pop'
+                );
+            }
+
+            // ============================================================
+            // IFRAME TRANSPORT
+            // ============================================================
 
             function connectIframe() {
 
                 if (
-                    !CONFIG.session ||
+                    !CONFIG.session
+                ) {
+
+                    warn(
+                        'Nenhuma session definida. Iframe não será conectado.'
+                    );
+
+                    return;
+                }
+
+                /*
+                 * Quando server/server2/server3 está ativo,
+                 * usamos exclusivamente o WebSocket para evitar
+                 * receber o mesmo payload duas vezes.
+                 */
+                if (
                     CONFIG.hasServerMode
                 ) {
+
+                    log(
+                        'Modo WebSocket ativo. Iframe desabilitado para evitar duplicação.'
+                    );
+
                     return;
                 }
 
@@ -1373,61 +1722,110 @@
                     );
 
                 const lanOnly =
-                    CONFIG.lanOnly
-                        ? '&lanonly'
-                        : '';
+                    CONFIG.lanOnly ?
+                        '&lanonly' :
+                        '';
+
+                const room =
+                    encodeURIComponent(
+                        CONFIG.session
+                    );
 
                 iframe =
                     document.createElement(
                         'iframe'
                     );
 
+                /*
+                 * Dedicated metadata overlay.
+                 *
+                 * viewer_updates são enviados para label=meta.
+                 */
                 iframe.src =
-                    `https://vdo.socialstream.ninja/?ln&salt=vdo.ninja&notmobile&password=${password + lanOnly}&solo&view=${encodeURIComponent(CONFIG.session)}&novideo&noaudio&label=meta&cleanoutput&room=${encodeURIComponent(CONFIG.session)}`;
+                    `https://vdo.socialstream.ninja/?ln` +
+                    `&salt=vdo.ninja` +
+                    `&notmobile` +
+                    `&password=${password}` +
+                    `${lanOnly}` +
+                    `&solo` +
+                    `&view=${room}` +
+                    `&novideo` +
+                    `&noaudio` +
+                    `&label=meta` +
+                    `&cleanoutput` +
+                    `&room=${room}`;
 
                 iframe.style.cssText = `
-            width:0;
-            height:0;
-            position:fixed;
-            left:-100px;
-            top:-100px;
-            border:0;
-            pointer-events:none;
+            width: 0;
+            height: 0;
+            position: fixed;
+            left: -100px;
+            top: -100px;
+            border: 0;
+            pointer-events: none;
         `;
 
                 document.body.appendChild(
                     iframe
                 );
+
+                success(
+                    'Iframe VDO.Ninja conectado.'
+                    , {
+                        session: CONFIG.session
+                    }
+                );
             }
 
-            // ==========================================
-            // SOCKET
-            // ==========================================
+            // ============================================================
+            // WEBSOCKET
+            // ============================================================
 
-            function connectSocket({
-                url,
-                roomId,
-                out,
-                inChannel
-            }) {
+            function connectSocket(
+                {
+                    url
+                    , roomId
+                    , out
+                    , inChannel
+                    , name
+                }) {
 
                 if (
                     !url ||
                     !roomId
                 ) {
+
+                    warn(
+                        'WebSocket não iniciado: URL ou room ausente.'
+                        , {
+                            url
+                            , roomId
+                            , name
+                        }
+                    );
+
                     return;
                 }
 
                 const connection = {
+                    name: name || 'websocket',
+
+                    url,
+
                     socket: null,
+
                     timer: null,
-                    attempts: 1,
+
+                    attempts: 0,
+
                     closed: false
                 };
 
-                sockets.push(connection);
+                sockets.push(
+                    connection
+                );
 
-                function reconnect() {
+                function scheduleReconnect() {
 
                     if (
                         connection.closed
@@ -1439,20 +1837,24 @@
                         connection.timer
                     );
 
+                    connection.attempts++;
+
                     const delay =
                         Math.min(
-                            12000,
-                            250 *
+                            12000
+                            , 500 *
                             connection.attempts
                         );
 
+                    warn(
+                        `${connection.name}: reconectando em ${delay}ms.`
+                    );
+
                     connection.timer =
                         setTimeout(
-                            connect,
-                            delay
+                            connect
+                            , delay
                         );
-
-                    connection.attempts++;
                 }
 
                 function connect() {
@@ -1463,6 +1865,11 @@
                         return;
                     }
 
+                    debug(
+                        `${connection.name}: conectando...`
+                        , url
+                    );
+
                     try {
 
                         connection.socket =
@@ -1470,27 +1877,56 @@
                                 url
                             );
 
-                    } catch {
+                    }
+                    catch (err) {
 
-                        reconnect();
+                        error(
+                            `${connection.name}: falha ao criar WebSocket.`
+                            , err
+                        );
+
+                        scheduleReconnect();
+
                         return;
                     }
+
+                    // ----------------------------------------------------
+                    // OPEN
+                    // ----------------------------------------------------
 
                     connection.socket.onopen =
                         () => {
 
-                            connection.attempts = 1;
+                            connection.attempts =
+                                0;
+
+                            const joinMessage = {
+                                join: roomId,
+
+                                out: out,
+
+                                in: inChannel
+                            };
+
+                            debug(
+                                `${connection.name}: enviando join.`
+                                , joinMessage
+                            );
 
                             connection.socket.send(
-                                JSON.stringify({
-                                    join:
-                                        roomId,
-                                    out,
-                                    in:
-                                        inChannel
-                                })
+                                JSON.stringify(
+                                    joinMessage
+                                )
+                            );
+
+                            success(
+                                `${connection.name}: WebSocket conectado.`
                             );
                         };
+
+                    // ----------------------------------------------------
+                    // MESSAGE
+                    // ----------------------------------------------------
 
                     connection.socket.onmessage =
                         event => {
@@ -1508,178 +1944,260 @@
                                         event.data
                                     );
 
+                                debug(
+                                    `${connection.name}: mensagem recebida.`
+                                    , parsed
+                                );
+
                                 processIncomingData(
                                     parsed
                                 );
 
+                                /*
+                                 * Mantém callbacks do SSN.
+                                 */
                                 if (
                                     parsed?.get
                                 ) {
 
                                     connection.socket.send(
-                                        JSON.stringify({
-                                            callback: {
-                                                get:
-                                                    parsed.get,
-                                                result: true
-                                            }
-                                        })
+                                        JSON.stringify(
+                                            {
+                                                callback:
+                                                {
+                                                    get: parsed.get,
+
+                                                    result: true
+                                                }
+                                            })
                                     );
                                 }
 
-                            } catch { }
+                            }
+                            catch (err) {
+
+                                error(
+                                    `${connection.name}: JSON inválido recebido.`
+                                    , {
+                                        raw: event.data,
+
+                                        error: err
+                                    }
+                                );
+                            }
                         };
+
+                    // ----------------------------------------------------
+                    // ERROR
+                    // ----------------------------------------------------
 
                     connection.socket.onerror =
-                        () => {
+                        err => {
 
-                            try {
-
-                                connection.socket.close();
-
-                            } catch { }
+                            error(
+                                `${connection.name}: erro WebSocket.`
+                                , err
+                            );
                         };
 
+                    // ----------------------------------------------------
+                    // CLOSE
+                    // ----------------------------------------------------
+
                     connection.socket.onclose =
-                        reconnect;
+                        event => {
+
+                            warn(
+                                `${connection.name}: WebSocket fechado.`
+                                , {
+                                    code: event.code,
+
+                                    reason: event.reason ||
+                                        '(sem motivo)'
+                                }
+                            );
+
+                            scheduleReconnect();
+                        };
                 }
 
                 connect();
             }
 
-            // ==========================================
+            // ============================================================
             // SERVER MODES
-            // ==========================================
+            // ============================================================
 
             function connectServerModes() {
 
-                const roomId =
-                    CONFIG.session
-                        .split(',')[0];
+                if (
+                    !CONFIG.session
+                ) {
 
-                if (!roomId) {
                     return;
                 }
 
-                // API SERVER
+                const roomId =
+                    CONFIG.session
+                        .split(',')[0]
+                        .trim();
+
+                if (!roomId) {
+
+                    error(
+                        'Session inválida.'
+                    );
+
+                    return;
+                }
+
+                // --------------------------------------------------------
+                // SERVER
+                // --------------------------------------------------------
 
                 if (
                     params.has('server')
                 ) {
 
-                    const url =
+                    const customServer =
                         params.get(
                             'server'
-                        ) ||
+                        );
+
+                    const url =
+                        customServer ||
                         (
                             params.has(
                                 'localserver'
-                            )
-                                ? 'ws://127.0.0.1:3000'
-                                : 'wss://io.socialstream.ninja/api'
+                            ) ?
+                                'ws://127.0.0.1:3000' :
+                                'wss://io.socialstream.ninja'
                         );
 
-                    connectSocket({
-                        url,
-                        roomId,
-                        out: 2,
-                        inChannel: 1
-                    });
+                    connectSocket(
+                        {
+                            name: 'server',
+
+                            url,
+
+                            roomId,
+
+                            /*
+                             * Canal utilizado pelo dock/API server.
+                             */
+                            out: 2,
+
+                            inChannel: 1
+                        });
                 }
 
-                // EXTENSION SERVER
+                // --------------------------------------------------------
+                // SERVER2 / SERVER3
+                // --------------------------------------------------------
 
                 if (
-                    params.has(
-                        'server2'
-                    ) ||
-                    params.has(
-                        'server3'
-                    )
+                    params.has('server2') ||
+                    params.has('server3')
                 ) {
 
-                    const url =
-                        params.has(
-                            'server2'
-                        )
-                            ? (
-                                params.get(
-                                    'server2'
-                                ) ||
-                                'wss://io.socialstream.ninja/extension'
-                            )
-                            : (
-                                params.get(
-                                    'server3'
-                                ) ||
-                                'wss://io.socialstream.ninja/extension'
-                            );
+                    const parameter =
+                        params.has('server2') ?
+                            'server2' :
+                            'server3';
 
-                    connectSocket({
-                        url,
-                        roomId,
-                        out: 3,
-                        inChannel: 4
-                    });
+                    const customServer =
+                        params.get(
+                            parameter
+                        );
+
+                    const url =
+                        customServer ||
+                        'wss://io.socialstream.ninja/extension';
+
+                    connectSocket(
+                        {
+                            name: parameter,
+
+                            url,
+
+                            roomId,
+
+                            /*
+                             * Canal da extensão.
+                             */
+                            out: 3,
+
+                            inChannel: 4
+                        });
                 }
             }
 
-            // ==========================================
-            // MESSAGE LISTENER
-            // ==========================================
+            // ============================================================
+            // POSTMESSAGE / IFRAME LISTENER
+            // ============================================================
 
             window.addEventListener(
-                'message',
-                event => {
+                'message'
+                , event => {
 
-                    let payload =
-                        null;
+                    /*
+                     * Nunca processamos mensagens arbitrárias
+                     * quando não possuem payload SSN.
+                     */
+
+                    const payload =
+                        event
+                            ?.data
+                            ?.dataReceived
+                            ?.overlayNinja;
 
                     if (
-                        event?.data
-                            ?.dataReceived
-                            ?.overlayNinja
+                        payload === undefined
                     ) {
-
-                        if (
-                            iframe &&
-                            event.source !==
-                            iframe.contentWindow
-                        ) {
-                            return;
-                        }
-
-                        payload =
-                            event.data
-                                .dataReceived
-                                .overlayNinja;
+                        return;
                     }
 
-                    else if (
-                        event?.data
-                            ?.overlayNinja
+                    /*
+                     * Quando existe iframe próprio,
+                     * aceita somente mensagens dele.
+                     *
+                     * Isso evita que páginas externas
+                     * injetem payloads no overlay.
+                     */
+                    if (
+                        iframe &&
+                        event.source !==
+                        iframe.contentWindow
                     ) {
 
-                        payload =
-                            event.data
-                                .overlayNinja;
-                    }
-
-                    if (payload) {
-                        processIncomingData(
-                            payload
+                        debug(
+                            'Mensagem ignorada: origem diferente do iframe.'
                         );
+
+                        return;
                     }
+
+                    debug(
+                        'Mensagem recebida pelo iframe bridge.'
+                    );
+
+                    processIncomingData(
+                        payload
+                    );
                 }
             );
 
-            // ==========================================
+            // ============================================================
             // CLEANUP
-            // ==========================================
+            // ============================================================
 
             window.addEventListener(
-                'beforeunload',
-                () => {
+                'beforeunload'
+                , () => {
+
+                    log(
+                        'Encerrando conexões...'
+                    );
 
                     sockets.forEach(
                         connection => {
@@ -1702,33 +2220,148 @@
 
                                     connection.socket.close();
 
-                                } catch { }
+                                }
+                                catch {
+                                    // Ignora erros durante unload.
+                                }
                             }
                         }
                     );
                 }
             );
 
-            // ==========================================
-            // INIT
-            // ==========================================
+            // ============================================================
+            // DEBUG INFORMATION
+            // ============================================================
 
-            // render inicial completo
+            function logConfiguration() {
 
-            registeredPlatforms.forEach(
-                platform => {
-                    viewerCounts[platform] = 0;
+                console.groupCollapsed(
+                    `${LOG_PREFIX} configuração`
+                );
+
+                console.log(
+                    'URL:'
+                    , window.location.href
+                );
+
+                console.log(
+                    'Session:'
+                    , CONFIG.session || '(não definida)'
+                );
+
+                console.log(
+                    'Password:'
+                    , CONFIG.password === 'false' ?
+                        '(default)' :
+                        '(definida)'
+                );
+
+                console.log(
+                    'LAN only:'
+                    , CONFIG.lanOnly
+                );
+
+                console.log(
+                    'Hide total:'
+                    , CONFIG.hideTotal
+                );
+
+                console.log(
+                    'Server mode:'
+                    , CONFIG.hasServerMode
+                );
+
+                console.log(
+                    'Debug:'
+                    , CONFIG.debug
+                );
+
+                console.log(
+                    'Initial platforms:'
+                    , [...registeredPlatforms]
+                );
+
+                console.groupEnd();
+            }
+
+            // ============================================================
+            // INITIALIZATION
+            // ============================================================
+
+            function initialize() {
+
+                console.group(
+                    `${LOG_PREFIX} inicialização`
+                );
+
+                log(
+                    'Inicializando overlay de viewers...'
+                );
+
+                logConfiguration();
+
+                // --------------------------------------------------------
+                // PLATFORMS
+                // --------------------------------------------------------
+
+                registerInitialPlatforms();
+
+                // --------------------------------------------------------
+                // INITIAL STATE
+                // --------------------------------------------------------
+
+                registeredPlatforms.forEach(
+                    platform => {
+
+                        viewerCounts[
+                            platform
+                        ] = 0;
+                    }
+                );
+
+                syncViewerEntries();
+
+                // --------------------------------------------------------
+                // TRANSPORT
+                // --------------------------------------------------------
+
+                if (
+                    CONFIG.hasServerMode
+                ) {
+
+                    connectServerModes();
+
                 }
-            );
+                else {
 
-            syncViewerEntries();
+                    connectIframe();
+                }
 
-            connectServerModes();
+                success(
+                    'Overlay inicializado.'
+                    , {
+                        session: CONFIG.session,
 
-            connectIframe();
+                        platforms: [...registeredPlatforms],
+
+                        transport: CONFIG.hasServerMode ?
+                            'websocket' :
+                            'iframe'
+                    }
+                );
+
+                console.groupEnd();
+            }
+
+            // ============================================================
+            // START
+            // ============================================================
+
+            initialize();
 
         })();
+
     </script>
 </body>
-
 </html>
