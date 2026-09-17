@@ -753,103 +753,45 @@
             // PLATFORM DISCOVERY
             // ================================================================
 
-            function registerPlatformsFromPayload(
-                data
-            ) {
+            function registerPlatformsFromPayload(data) {
                 if (!data) {
                     return;
                 }
-
-                const candidates = [];
-
+            
+                const eventName =
+                    normalizeEventName(data.event);
+            
                 // ------------------------------------------------------------
-                // Top level
+                // viewer_update
                 // ------------------------------------------------------------
-
-                candidates.push(
-                    data.platform
-                );
-
-                /*
-                 * data.type normalmente representa
-                 * a plataforma em viewer_update.
-                 */
-                candidates.push(
-                    data.type
-                );
-
+            
+                if (eventName === 'viewer_update') {
+                    const platform =
+                        data.platform ||
+                        data.type;
+            
+                    if (platform) {
+                        registerPlatform(platform);
+                    }
+            
+                    return;
+                }
+            
                 // ------------------------------------------------------------
                 // viewer_updates
                 // ------------------------------------------------------------
-
-                if (
-                    isPlainObject(data.meta)
-                ) {
-                    Object.keys(
-                        data.meta
-                    ).forEach(
-                        platform =>
-                            candidates.push(
-                                platform
-                            )
+            
+                if (eventName === 'viewer_updates') {
+                    if (!isPlainObject(data.meta)) {
+                        return;
+                    }
+            
+                    Object.keys(data.meta).forEach(
+                        platform => {
+                            registerPlatform(platform);
+                        }
                     );
                 }
-
-                // ------------------------------------------------------------
-                // Optional source arrays
-                // ------------------------------------------------------------
-
-                const sourceArrays = [
-                    data.sources,
-                    data.accounts,
-                    data.channels,
-                    data.destinations
-                ];
-
-                sourceArrays.forEach(
-                    source => {
-
-                        if (
-                            !Array.isArray(source)
-                        ) {
-                            return;
-                        }
-
-                        source.forEach(
-                            item => {
-
-                                if (
-                                    typeof item ===
-                                    'string'
-                                ) {
-                                    candidates.push(
-                                        item
-                                    );
-
-                                    return;
-                                }
-
-                                if (
-                                    item &&
-                                    typeof item ===
-                                    'object'
-                                ) {
-                                    candidates.push(
-                                        item.type,
-                                        item.platform,
-                                        item.name
-                                    );
-                                }
-                            }
-                        );
-                    }
-                );
-
-                candidates
-                    .filter(Boolean)
-                    .forEach(
-                        registerPlatform
-                    );
             }
 
             // ================================================================
