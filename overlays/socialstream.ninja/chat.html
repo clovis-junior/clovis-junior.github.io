@@ -4,22 +4,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>Chat Overlay - Social Stream Ninja</title>
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,100..900;1,100..900&display=swap" type="text/css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" type="text/css">
+
+    <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,100..900;1,100..900&display=swap"
+        type="text/css"
+    >
+
+    <link
+        rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"
+        type="text/css"
+    >
+
     <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
     <link rel="icon" href="/favicon.ico" type="image/x-icon">
+
     <style type="text/css">
+
         @charset 'UTF-8';
+
+        /* ==========================================
+           RESET
+        ========================================== */
 
         *,
         *:after,
         *:before {
             margin: 0;
             padding: 0;
-            box-sizing: border-box
+            box-sizing: border-box;
         }
 
         * {
@@ -28,39 +47,75 @@
             font-family: inherit;
             font-size: 100%;
             background: transparent;
-            vertical-align: baseline
+            vertical-align: baseline;
         }
+
+        /* ==========================================
+           VARIABLES
+        ========================================== */
 
         :root {
             --background-color: #f9fafb;
+
             --badge-size: 28px;
             --emote-size: 42px;
+
             --message-background-color: #cbd5e1;
             --message-letter-spacing: 1px;
             --message-font-family: 'Noto Sans';
             --message-font-weight: 600;
             --message-font-size: 22px;
             --message-text-color: #030712;
+
+            --content-image-max-height: 240px;
         }
+
+        /* ==========================================
+           BODY
+        ========================================== */
 
         body {
             overflow: hidden;
             text-rendering: optimizeLegibility;
         }
 
+        /* ==========================================
+           MAIN CONTAINER
+        ========================================== */
+
         .main-container {
             max-width: 100vw;
             height: 100vh;
+
             display: flex;
             flex-wrap: nowrap;
             flex-direction: column;
             justify-content: flex-end;
             align-items: flex-start;
+
             gap: 1rem;
             padding: 0 1rem 1rem;
+
             position: relative;
-            -webkit-mask-image: linear-gradient(0deg, transparent 0%, white 2%, white 80%, transparent 100%);
-            mask-image: linear-gradient(0deg, transparent 0%, white 2%, white 80%, transparent 100%);
+
+            -webkit-mask-image:
+                linear-gradient(
+                    0deg,
+                    transparent 0%,
+                    white 2%,
+                    white 80%,
+                    transparent 100%
+                );
+
+            mask-image:
+                linear-gradient(
+                    0deg,
+                    transparent 0%,
+                    white 2%,
+                    white 80%,
+                    transparent 100%
+                );
+
             user-select: none;
         }
 
@@ -68,23 +123,34 @@
             flex-direction: column-reverse;
         }
 
+        /* ==========================================
+           CHAT
+        ========================================== */
+
         .chat {
             --header-height: calc(var(--message-font-size) * 2);
+
             --message-background-color: #f9fafb;
             --message-text-color: #030712;
 
             flex: 0 0 auto;
+
             max-height: 0;
+
             display: flex;
             flex-direction: column;
             flex-wrap: nowrap;
             align-items: flex-start;
+
             overflow: hidden;
+
             font-family: var(--message-font-family);
+
             animation-name: fadeInUp, fadeOutUp;
             animation-duration: 240ms;
             animation-timing-function: linear, ease-out;
             animation-fill-mode: backwards, forwards;
+
             transition: max-height 500ms;
         }
 
@@ -93,11 +159,18 @@
             --message-text-color: #f9fafb;
         }
 
+        /* ==========================================
+           CHAT HEADER
+        ========================================== */
+
         .chat-header {
             z-index: 2;
+
             flex: 1 0;
+
             height: var(--header-height);
             line-height: var(--header-height);
+
             display: flex;
             flex-wrap: nowrap;
             flex-direction: row;
@@ -105,17 +178,27 @@
             align-items: center;
         }
 
+        /* ==========================================
+           BADGES
+        ========================================== */
+
         .chat-user-badges {
             flex: 0 1;
+
             height: calc(var(--badge-size) * 2);
+
             display: flex;
             flex-wrap: nowrap;
             flex-direction: row;
             justify-content: center;
             align-items: center;
+
             gap: 15px;
+
             line-height: calc(var(--badge-size) * 2);
+
             background-color: transparent;
+
             transform: scale(.9);
         }
 
@@ -123,72 +206,94 @@
             padding: 0 15px;
         }
 
-        .chat-user-badges>img {
+        .chat-user-badges > img {
             object-fit: cover;
         }
 
-        .chat-user-badges>img,
-        .chat-user-badges>.source {
+        .chat-user-badges > img,
+        .chat-user-badges > .source {
             min-width: var(--badge-size);
             min-height: var(--badge-size);
             max-height: var(--badge-size);
+
             display: block;
         }
 
-         .chat-user-badges>.source {
+        .chat-user-badges > .source {
             mask-repeat: no-repeat;
             mask-position: center;
             mask-size: var(--badge-size);
+
             -webkit-mask-repeat: no-repeat;
             -webkit-mask-position: center;
             -webkit-mask-size: var(--badge-size);
         }
 
-         .chat-user-badges>.source.twitch {
+        .chat-user-badges > .source.twitch {
             background-color: #6441a5;
+
             mask-image: url('https://i.imgur.com/DnG97p5.png');
             -webkit-mask-image: url('https://i.imgur.com/DnG97p5.png');
         }
 
-         .chat-user-badges>.source.facebook {
+        .chat-user-badges > .source.facebook {
             background-color: #005FED;
+
             mask-image: url('https://i.imgur.com/t8pQUvH.png');
             -webkit-mask-image: url('https://i.imgur.com/t8pQUvH.png');
         }
 
-         .chat-user-badges>.source.youtube,
-         .chat-user-badges>.source.youtubeshorts {
+        .chat-user-badges > .source.youtube,
+        .chat-user-badges > .source.youtubeshorts {
             background-color: #f80231;
+
             mask-image: url('https://i.imgur.com/PCyzV61.png');
             -webkit-mask-image: url('https://i.imgur.com/PCyzV61.png');
         }
 
-         .chat-user-badges>.source.kick {
+        .chat-user-badges > .source.kick {
             background-color: #00e701;
+
             mask-image: url('https://i.imgur.com/GONwTVy.png');
             -webkit-mask-image: url('https://i.imgur.com/GONwTVy.png');
         }
 
-         .chat-user-badges>.source.tiktok {
+        .chat-user-badges > .source.tiktok {
             background-color: #2af0ea;
+
             mask-image: url('https://i.imgur.com/paZ8nLv.png');
             -webkit-mask-image: url('https://i.imgur.com/paZ8nLv.png');
         }
+
+        /* ==========================================
+           USERNAME
+        ========================================== */
 
         .chat-user-name {
             --color: #030712;
 
             flex: 1 0;
+
             height: var(--header-height);
+
             display: block;
+
             white-space: nowrap;
             overflow: hidden;
+
             border-radius: 5px;
+
             padding: 0 20px;
+
             background-color: var(--color);
-            letter-spacing: calc(var(--message-letter-spacing) * 2);
+
+            letter-spacing:
+                calc(var(--message-letter-spacing) * 2);
+
             font-weight: 700;
-            font-size: calc(var(--message-font-size) * 1.1);
+            font-size:
+                calc(var(--message-font-size) * 1.1);
+
             transition: background-color 240ms;
         }
 
@@ -200,44 +305,80 @@
             color: #f9fafb;
         }
 
-        .chat:nth-of-type(3n + 1) .chat-user-name:not(.own) {
+        /* ==========================================
+           USERNAME COLORS
+        ========================================== */
+
+        .chat:nth-of-type(3n + 1)
+        .chat-user-name:not(.own) {
             background-color: #2c4b7d !important;
         }
 
-        .chat:nth-of-type(3n + 2) .chat-user-name:not(.own) {
+        .chat:nth-of-type(3n + 2)
+        .chat-user-name:not(.own) {
             background-color: #e2612f !important;
         }
 
-        .chat:nth-of-type(3n + 3) .chat-user-name:not(.own) {
+        .chat:nth-of-type(3n + 3)
+        .chat-user-name:not(.own) {
             background-color: #b42f41 !important;
         }
 
+        /* ==========================================
+           MESSAGE
+        ========================================== */
+
         .chat-message {
             z-index: 1;
+
             display: flex;
+
             padding: 15px 20px;
+
             border: 2px solid #64748b;
             border-radius: 0 10px 10px;
+
             margin-left: 1rem;
-            background-color: var(--message-background-color);
-            color: var(--message-text-color);
+
+            background-color:
+                var(--message-background-color);
+
+            color:
+                var(--message-text-color);
         }
 
         .chat-message-content {
             flex: 0 0 100%;
+
             display: flex;
             flex-wrap: wrap;
             flex-direction: row;
+
             justify-content: flex-start;
             align-items: center;
+
             overflow: hidden;
             overflow-wrap: break-word;
-            line-height: calc(var(--message-font-size) * 1.33);
-            letter-spacing: var(--message-letter-spacing);
-            font-weight: var(--message-font-weight);
-            font-size: var(--message-font-size);
-            color: var(--message-text-color);
+
+            line-height:
+                calc(var(--message-font-size) * 1.33);
+
+            letter-spacing:
+                var(--message-letter-spacing);
+
+            font-weight:
+                var(--message-font-weight);
+
+            font-size:
+                var(--message-font-size);
+
+            color:
+                var(--message-text-color);
         }
+
+        /* ==========================================
+           TEXT ELEMENTS
+        ========================================== */
 
         .chat-message-content .emote,
         .chat-message-content .mention,
@@ -256,30 +397,40 @@
 
         .chat-message-content .mention {
             padding: 0 10px;
+
             border-radius: 5px;
+
             font-weight: 700;
-            background-color: rgba(var(--color-rgb), .1);
+
+            background-color:
+                rgba(var(--color-rgb), .1);
         }
 
-        .chat:not(.dark) .chat-message-content .mention {
-            background-color: rgba(var(--color-rgb), .4);
+        .chat:not(.dark)
+        .chat-message-content .mention {
+            background-color:
+                rgba(var(--color-rgb), .4);
         }
 
-        .chat-message-content img,
+        /* ==========================================
+           EMOTES
+        ========================================== */
+
+        .chat-message-content img:not(.content-image),
         .chat-message-content .emote,
-        .chat-message-content .emote>* {
+        .chat-message-content .emote > * {
             width: var(--emote-size);
             height: auto;
         }
 
-        .chat-message-content img,
+        .chat-message-content img:not(.content-image),
         .chat-message-content .emote {
             background-size: cover;
             background-repeat: no-repeat;
         }
 
-        .chat-message-content img,
-        .chat-message-content .emote>* {
+        .chat-message-content img:not(.content-image),
+        .chat-message-content .emote > * {
             -o-object-fit: cover;
             object-fit: cover;
         }
@@ -287,33 +438,94 @@
         .chat-message-content .link {
             font-weight: 300;
         }
+
+        /* ==========================================
+           CONTENT IMAGE / GIF
+        ========================================== */
+
+        .content-media {
+            flex: 0 0 100%;
+
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
+
+            margin-top: 8px;
+        }
+
+        .content-image {
+            width: auto;
+            max-width: 100%;
+            max-height: var(--content-image-max-height);
+            height: auto;
+
+            display: block;
+
+            object-fit: contain;
+
+            border-radius: 8px;
+        }
+
     </style>
 </head>
 
 <body>
+
     <main class="main-container"></main>
 
+    <!-- ==========================================
+         MESSAGE TEMPLATE
+    ========================================== -->
+
     <template id="message-template">
+
         <article class="chat">
+
             <header class="chat-header">
+
                 <span class="chat-user-name"></span>
+
                 <aside class="chat-user-badges badges"></aside>
+
             </header>
+
             <div class="chat-message">
+
                 <div class="chat-message-content"></div>
+
             </div>
+
         </article>
-    </template>
-    <template id="link-template">
-        <span class="link"></span>
-    </template>
-    <template id="mention-template">
-        <span class="mention"></span>
+
     </template>
 
+    <!-- ==========================================
+         LINK TEMPLATE
+    ========================================== -->
+
+    <template id="link-template">
+
+        <span class="link"></span>
+
+    </template>
+
+    <!-- ==========================================
+         MENTION TEMPLATE
+    ========================================== -->
+
+    <template id="mention-template">
+
+        <span class="mention"></span>
+
+    </template>
+
+
     <script type="text/javascript" defer>
+
         (() => {
+
             'use strict';
+
 
             // ==========================================
             // URL PARAMS / CONFIG
@@ -324,13 +536,18 @@
                     window.location.search.toLowerCase()
                 );
 
+
             const CONFIG = {
+
                 roomID:
-                    urlParams.get('session') || 'iWWnKL28tQ',
+                    urlParams.get('session') ||
+                    'iWWnKL28tQ',
 
-                password: 'false',
+                password:
+                    'false',
 
-                featuredMode: false,
+                featuredMode:
+                    false,
 
                 reversed:
                     urlParams.has('reverse'),
@@ -345,13 +562,19 @@
                     urlParams.has('usercolor'),
 
                 messageDuration:
-                    Number(urlParams.get('messageduration')) || 30000,
+                    Number(
+                        urlParams.get('messageduration')
+                    ) || 30000,
 
                 maxBadges:
-                    Number(urlParams.get('limitbadges')) || Infinity,
+                    Number(
+                        urlParams.get('limitbadges')
+                    ) || Infinity,
 
                 maxMessages:
-                    Number(urlParams.get('limit')) || Infinity,
+                    Number(
+                        urlParams.get('limit')
+                    ) || Infinity,
 
                 serverURL:
                     urlParams.get('server') ||
@@ -367,74 +590,110 @@
                     urlParams.has('server2')
             };
 
+
             // ==========================================
             // DOM
             // ==========================================
 
             const DOM = {
+
                 container:
-                    document.querySelector('.main-container'),
+                    document.querySelector(
+                        '.main-container'
+                    ),
 
                 templates: {
+
                     message:
-                        document.getElementById('message-template'),
+                        document.getElementById(
+                            'message-template'
+                        ),
 
                     link:
-                        document.getElementById('link-template'),
+                        document.getElementById(
+                            'link-template'
+                        ),
 
                     mention:
-                        document.getElementById('mention-template')
+                        document.getElementById(
+                            'mention-template'
+                        )
                 }
             };
+
 
             // ==========================================
             // STATE
             // ==========================================
 
             const state = {
-                socket: null,
-                reconnectAttempts: 0,
-                messageTimers: new Map()
+
+                socket:
+                    null,
+
+                reconnectAttempts:
+                    0,
+
+                messageTimers:
+                    new Map()
             };
 
+
             // ==========================================
-            // INIT DOM
+            // INIT
             // ==========================================
 
             if (CONFIG.reversed) {
-                DOM.container.classList.add('reverse');
+
+                DOM.container.classList.add(
+                    'reverse'
+                );
             }
 
+
             // ==========================================
-            // HELPERS
+            // GENERIC HELPERS
             // ==========================================
 
-            const isObject = value =>
-                value !== null &&
-                typeof value === 'object';
+            const isObject =
+                value =>
+                    value !== null &&
+                    typeof value === 'object';
 
-            const safeText = value =>
-                value?.toString?.() || '';
 
-            const nextFrame = () =>
-                new Promise(resolve =>
-                    requestAnimationFrame(resolve)
-                );
+            const safeText =
+                value =>
+                    value?.toString?.() || '';
 
-            const createElement = (
-                tag,
-                className = ''
-            ) => {
 
-                const element =
-                    document.createElement(tag);
+            const nextFrame =
+                () =>
+                    new Promise(resolve =>
+                        requestAnimationFrame(resolve)
+                    );
 
-                if (className) {
-                    element.className = className;
-                }
 
-                return element;
-            };
+            const createElement =
+                (
+                    tag,
+                    className = ''
+                ) => {
+
+                    const element =
+                        document.createElement(tag);
+
+                    if (className) {
+                        element.className =
+                            className;
+                    }
+
+                    return element;
+                };
+
+
+            // ==========================================
+            // COLOR HELPERS
+            // ==========================================
 
             function normalizeColor(color) {
 
@@ -445,34 +704,50 @@
                 let normalized =
                     safeText(color).trim();
 
-                // Adiciona # automaticamente
+
+                // #RGB / RGB
                 if (
-                    /^[A-Fa-f0-9]{6}$/.test(normalized)
+                    /^[A-Fa-f0-9]{3}$/.test(
+                        normalized
+                    )
                 ) {
-                    normalized = `#${normalized}`;
+
+                    normalized =
+                        `#${normalized}`;
                 }
 
-                // Adiciona # automaticamente (#RGB)
+
+                // #RRGGBB / RRGGBB
                 if (
-                    /^[A-Fa-f0-9]{3}$/.test(normalized)
+                    /^[A-Fa-f0-9]{6}$/.test(
+                        normalized
+                    )
                 ) {
-                    normalized = `#${normalized}`;
+
+                    normalized =
+                        `#${normalized}`;
                 }
+
 
                 const temp =
                     document.createElement('div');
 
-                temp.style.color = normalized;
+                temp.style.color =
+                    normalized;
 
                 document.body.appendChild(temp);
+
 
                 const computed =
                     getComputedStyle(temp).color;
 
+
                 temp.remove();
+
 
                 return computed;
             }
+
 
             function isDarkColor(color) {
 
@@ -484,26 +759,48 @@
                         /^rgba?\((\d+),\s*(\d+),\s*(\d+)/i
                     );
 
-                if (!rgbMatch)
-                    return false;
 
-                const r = Number(rgbMatch[1]);
-                const g = Number(rgbMatch[2]);
-                const b = Number(rgbMatch[3]);
+                if (!rgbMatch) {
+                    return false;
+                }
+
+
+                const red =
+                    Number(rgbMatch[1]);
+
+                const green =
+                    Number(rgbMatch[2]);
+
+                const blue =
+                    Number(rgbMatch[3]);
+
 
                 const brightness =
-                    (r * 299 + g * 587 + b * 114) / 1000;
+                    (
+                        red * 299 +
+                        green * 587 +
+                        blue * 114
+                    ) / 1000;
+
 
                 return brightness < 122;
             }
 
+
+            // ==========================================
+            // HEIGHT / LAYOUT
+            // ==========================================
+
             function getTrueHeight(element) {
 
-                if (!element)
+                if (!element) {
                     return 0;
+                }
+
 
                 const style =
                     getComputedStyle(element);
+
 
                 const parentStyle =
                     element.parentElement
@@ -512,17 +809,60 @@
                         )
                         : null;
 
-                let childrens = 0;
-                for(let i=0;i<element.children.length;i++)
-                    childrens += element.children[i].offsetHeight;
+
+                let childrenHeight = 0;
+
+
+                for (
+                    const child
+                    of element.children
+                ) {
+
+                    childrenHeight +=
+                        child.offsetHeight;
+                }
+
 
                 return (
-                    childrens +
+                    childrenHeight +
                     element.scrollHeight +
                     (parseFloat(style.gap) || 0) +
                     (parseFloat(parentStyle?.gap) || 0)
                 );
             }
+
+
+            async function waitForImageLoad(image) {
+
+                if (
+                    !image ||
+                    image.complete
+                ) {
+                    return;
+                }
+
+
+                await new Promise(resolve => {
+
+                    const finish =
+                        () => resolve();
+
+
+                    image.addEventListener(
+                        'load',
+                        finish,
+                        { once: true }
+                    );
+
+                    image.addEventListener(
+                        'error',
+                        finish,
+                        { once: true }
+                    );
+
+                });
+            }
+
 
             // ==========================================
             // MESSAGE FORMATTERS
@@ -537,48 +877,66 @@
                 const fragment =
                     template?.content?.cloneNode(true);
 
+
                 const element =
-                    fragment?.querySelector(selector);
+                    fragment?.querySelector(
+                        selector
+                    );
+
 
                 if (!element) {
                     return text;
                 }
 
-                element.textContent = text;
+
+                element.textContent =
+                    text;
+
 
                 return element.outerHTML;
             }
+
 
             function formatMessageText(text = '') {
 
                 let formatted =
                     safeText(text);
 
-                formatted = formatted.replace(
-                    /(?<![\(\"\'\=])(https?\:\/\/[^\s\<\>\"\'\)]+)/gi,
-                    match =>
-                        createTemplateHTML(
-                            DOM.templates.link,
-                            '.link',
-                            match
-                        )
-                );
 
-                formatted = formatted.replace(
-                    /\@([A-Za-z0-9\-\_]{4,})/gi,
-                    match =>
-                        createTemplateHTML(
-                            DOM.templates.mention,
-                            '.mention',
-                            match
-                        )
-                );
+                // URLs
+                formatted =
+                    formatted.replace(
+                        /(?<![\(\"\'\=])(https?\:\/\/[^\s\<\>\"\'\)]+)/gi,
+
+                        match =>
+                            createTemplateHTML(
+                                DOM.templates.link,
+                                '.link',
+                                match
+                            )
+                    );
+
+
+                // Mentions
+                formatted =
+                    formatted.replace(
+                        /\@([A-Za-z0-9\-\_]{4,})/gi,
+
+                        match =>
+                            createTemplateHTML(
+                                DOM.templates.mention,
+                                '.mention',
+                                match
+                            )
+                    );
+
 
                 return formatted;
             }
 
+
             // ==========================================
-            // BADGES / SOURCE
+            // BADGES
             // ==========================================
 
             function createBadge(src) {
@@ -587,44 +945,69 @@
                     return null;
                 }
 
+
                 const image =
                     new Image();
 
+
                 const element =
-                    createElement('img', 'badge');
+                    createElement(
+                        'img',
+                        'badge'
+                    );
 
-                image.onload = ({ target }) => {
-                    element.src = target.src;
-                };
 
-                image.src = src;
+                image.onload =
+                    ({ target }) => {
+
+                        element.src =
+                            target.src;
+                    };
+
+
+                image.src =
+                    src;
+
 
                 return element;
             }
 
-            function createSVGadge(html) {
+
+            function createSVGbadge(html) {
 
                 if (!html) {
                     return null;
                 }
 
+
                 const wrapper =
-                    createElement('span', 'badge');
+                    createElement(
+                        'span',
+                        'badge'
+                    );
+
 
                 const svg =
                     document.createElement('svg');
 
-                svg.innerHTML = html;
+
+                svg.innerHTML =
+                    html;
+
 
                 wrapper.appendChild(svg);
+
 
                 return wrapper;
             }
 
+
             function createSource(platform) {
 
-                if (!platform)
+                if (!platform) {
                     return null;
+                }
+
 
                 return createElement(
                     'span',
@@ -632,226 +1015,432 @@
                 );
             }
 
+
+            // ==========================================
+            // CONTENT IMAGE / GIF
+            // ==========================================
+
+            function createContentImage(
+                src,
+                alt = 'Chat image'
+            ) {
+
+                if (!src) {
+                    return null;
+                }
+
+
+                const wrapper =
+                    createElement(
+                        'div',
+                        'content-media'
+                    );
+
+
+                const image =
+                    createElement(
+                        'img',
+                        'content-image'
+                    );
+
+
+                image.src =
+                    src;
+
+                image.alt =
+                    alt;
+
+                image.loading =
+                    'eager';
+
+                image.decoding =
+                    'async';
+
+
+                image.onerror =
+                    () => {
+
+                        wrapper.remove();
+                    };
+
+
+                wrapper.appendChild(
+                    image
+                );
+
+
+                return {
+                    wrapper,
+                    image
+                };
+            }
+
+
             // ==========================================
             // MESSAGE REMOVE
             // ==========================================
 
-            function removeMessage(messageElement) {
+            function removeMessage(
+                messageElement
+            ) {
 
-                if (!messageElement?.parentNode)
+                if (
+                    !messageElement?.parentNode
+                ) {
                     return;
+                }
+
 
                 const messageId =
                     messageElement.id;
 
+
                 const timeout =
-                    state.messageTimers.get(messageId);
+                    state.messageTimers.get(
+                        messageId
+                    );
+
 
                 if (timeout) {
 
-                    clearTimeout(timeout);
+                    clearTimeout(
+                        timeout
+                    );
 
                     state.messageTimers.delete(
                         messageId
                     );
                 }
 
+
                 messageElement.remove();
             }
 
+
             // ==========================================
-            // MESSAGE CREATE
+            // MESSAGE VALIDATION
             // ==========================================
 
-            async function addMessageToOverlay(data) {
+            function isValidMessage(data) {
 
-                if (!data)
-                    return;
+                if (!data) {
+                    return false;
+                }
 
-                const {
-                    chatname,
-                    chatmessage,
-                    hasDonation,
-                    donation,
-                    type,
-                    chatbadges,
-                    mid
-                } = data;
 
-                const userColor =
+                const hasText =
+                    Boolean(
+                        data.chatmessage
+                    );
+
+
+                const hasImage =
+                    Boolean(
+                        data.contentimg
+                    );
+
+
+                const hasContent =
+                    hasText ||
+                    hasImage;
+
+
+                if (
+                    !data.chatname ||
+                    !hasContent
+                ) {
+                    return false;
+                }
+
+
+                if (
+                    data.hasDonation ||
+                    data.donation
+                ) {
+                    return false;
+                }
+
+
+                if (
+                    CONFIG.hideCommands &&
+                    hasText &&
+                    data.chatmessage.startsWith('!')
+                ) {
+                    return false;
+                }
+
+
+                return true;
+            }
+
+
+            // ==========================================
+            // MESSAGE ELEMENT CREATION
+            // ==========================================
+
+            function createMessageElement(
+                data
+            ) {
+
+                const fragment =
+                    DOM.templates.message
+                        .content
+                        .cloneNode(true);
+
+
+                const messageElement =
+                    fragment.querySelector(
+                        '.chat'
+                    );
+
+
+                const usernameElement =
+                    fragment.querySelector(
+                        '.chat-user-name'
+                    );
+
+
+                const badgesContainer =
+                    fragment.querySelector(
+                        '.chat-user-badges'
+                    );
+
+
+                const messageContent =
+                    fragment.querySelector(
+                        '.chat-message-content'
+                    );
+
+
+                return {
+                    messageElement,
+                    usernameElement,
+                    badgesContainer,
+                    messageContent
+                };
+            }
+
+
+            // ==========================================
+            // USER COLOR
+            // ==========================================
+
+            function getUserColor(data) {
+
+                return (
                     data.nameColor ||
                     data.chatnameColor ||
                     data.textColor ||
                     data.color ||
-                    '#030712';
-
-                // ==========================================
-                // VALIDATION
-                // ==========================================
-
-                if (
-                    !chatname ||
-                    !chatmessage ||
-                    hasDonation ||
-                    donation
-                )
-                    return;
-
-                if (
-                    CONFIG.hideCommands &&
-                    chatmessage.startsWith('!')
-                )
-                    return;
-
-                // ==========================================
-                // TEMPLATE
-                // ==========================================
-
-                const fragment =
-                    DOM.templates.message.content.cloneNode(true);
-
-                const messageElement =
-                    fragment.querySelector('.chat');
-
-                const usernameElement =
-                    fragment.querySelector('.chat-user-name');
-
-                const badgesContainer =
-                    fragment.querySelector('.chat-user-badges');
-
-                const messageContent =
-                    fragment.querySelector('.chat-message-content');
-
-                const messageId =
-                    mid ||
-                    `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-
-                // ==========================================
-                // ATTRIBUTES
-                // ==========================================
-
-                messageElement.id = messageId;
-
-                messageElement.dataset.platform =
-                    type || '';
-
-                messageElement.dataset.from =
-                    chatname;
-
-                messageElement.classList.toggle(
-                    'dark',
-                    CONFIG.darkMode
+                    '#030712'
                 );
+            }
 
-                usernameElement.classList.toggle(
-                    'own',
-                    CONFIG.useUserColor
-                );
 
-                // ==========================================
-                // SOURCE
-                // ==========================================
+            function applyUserColor(
+                element,
+                color
+            ) {
 
-                if (type) {
-
-                    const source =
-                        createSource(type);
-
-                    if (source)
-                        badgesContainer.appendChild(source);
+                if (!element || !color) {
+                    return;
                 }
 
-                // ==========================================
-                // BADGES
-                // ==========================================
 
-                if (Array.isArray(chatbadges)) {
+                const normalizedColor =
+                    normalizeColor(color);
 
-                    for (
-                        const badge of
-                        chatbadges.slice(0, CONFIG.maxBadges)
-                    ) {
 
-                        let badgeElement = null;
+                if (!normalizedColor) {
+                    return;
+                }
 
-                        if (isObject(badge)) {
 
-                            if (
-                                badge.type === 'img' &&
-                                badge.src
-                            ) {
+                element.style.setProperty(
+                    '--color',
+                    normalizedColor,
+                    'important'
+                );
 
-                                badgeElement =
-                                    createBadge(badge.src);
-                            }
 
-                            else if (
-                                badge.type === 'svg' &&
-                                badge.html
-                            ) {
+                element.classList.toggle(
+                    'dark-text',
+                    isDarkColor(
+                        normalizedColor
+                    )
+                );
+            }
 
-                                badgeElement =
-                                    createSVGadge(badge.html);
-                            }
 
-                        } else {
+            // ==========================================
+            // SOURCE
+            // ==========================================
+
+            function renderSource(
+                container,
+                platform
+            ) {
+
+                if (!platform) {
+                    return;
+                }
+
+
+                const source =
+                    createSource(platform);
+
+
+                if (source) {
+
+                    container.appendChild(
+                        source
+                    );
+                }
+            }
+
+
+            // ==========================================
+            // BADGES
+            // ==========================================
+
+            function renderBadges(
+                container,
+                badges
+            ) {
+
+                if (!Array.isArray(badges)) {
+                    return;
+                }
+
+
+                for (
+                    const badge
+                    of badges.slice(
+                        0,
+                        CONFIG.maxBadges
+                    )
+                ) {
+
+                    let badgeElement =
+                        null;
+
+
+                    if (isObject(badge)) {
+
+                        if (
+                            badge.type === 'img' &&
+                            badge.src
+                        ) {
 
                             badgeElement =
-                                createBadge(badge);
+                                createBadge(
+                                    badge.src
+                                );
+
+                        } else if (
+                            badge.type === 'svg' &&
+                            badge.html
+                        ) {
+
+                            badgeElement =
+                                createSVGbadge(
+                                    badge.html
+                                );
                         }
 
-                        if (badgeElement) {
-                            badgesContainer.appendChild(
-                                badgeElement
+                    } else {
+
+                        badgeElement =
+                            createBadge(
+                                badge
                             );
-                        }
                     }
-                }
 
-                // ==========================================
-                // USERNAME
-                // ==========================================
 
-                usernameElement.textContent =
-                    chatname;
+                    if (badgeElement) {
 
-                if (
-                    CONFIG.useUserColor &&
-                    userColor
-                ) {
-                    const normalizedColor =
-                        normalizeColor(userColor);
-
-                    if (normalizedColor) {
-
-                        usernameElement.style.setProperty(
-                            '--color',
-                            normalizedColor,
-                            'important'
-                        );
-
-                        usernameElement.classList.toggle(
-                            'dark-text',
-                            isDarkColor(normalizedColor)
+                        container.appendChild(
+                            badgeElement
                         );
                     }
                 }
+            }
 
-                // ==========================================
-                // MESSAGE
-                // ==========================================
 
-                messageContent.innerHTML =
-                    formatMessageText(chatmessage);
+            // ==========================================
+            // MESSAGE CONTENT
+            // ==========================================
 
-                // ==========================================
-                // INSERT
-                // ==========================================
+            function renderMessageContent(
+                content,
+                data
+            ) {
+
+                const {
+                    chatmessage,
+                    contentimg,
+                    meta
+                } = data;
+
+
+                // ------------------------------------------
+                // TEXT
+                // ------------------------------------------
+
+                if (chatmessage) {
+
+                    content.innerHTML =
+                        formatMessageText(
+                            chatmessage
+                        );
+                }
+
+
+                // ------------------------------------------
+                // CONTENT IMAGE / GIF
+                // ------------------------------------------
+
+                if (contentimg) {
+
+                    const image =
+                        createContentImage(
+                            contentimg,
+                            meta?.gifLabel ||
+                            'Chat image'
+                        );
+
+
+                    if (image) {
+
+                        content.appendChild(
+                            image.wrapper
+                        );
+
+
+                        return image.image;
+                    }
+                }
+
+
+                return null;
+            }
+
+
+            // ==========================================
+            // MESSAGE INSERTION
+            // ==========================================
+
+            function insertMessage(
+                messageElement
+            ) {
 
                 if (CONFIG.reversed) {
 
                     const firstMessage =
-                        DOM.container.querySelector('.chat');
+                        DOM.container.querySelector(
+                            '.chat'
+                        );
+
 
                     if (firstMessage) {
 
@@ -867,25 +1456,272 @@
                         );
                     }
 
-                } else {
+                    return;
+                }
 
-                    DOM.container.appendChild(
-                        messageElement
+
+                DOM.container.appendChild(
+                    messageElement
+                );
+            }
+
+
+            // ==========================================
+            // MESSAGE LIMIT
+            // ==========================================
+
+            function enforceMessageLimit() {
+
+                if (
+                    !Number.isFinite(
+                        CONFIG.maxMessages
+                    )
+                ) {
+                    return;
+                }
+
+
+                const messages =
+                    DOM.container.querySelectorAll(
+                        '.chat'
+                    );
+
+
+                if (
+                    messages.length <=
+                    CONFIG.maxMessages
+                ) {
+                    return;
+                }
+
+
+                const oldestMessage =
+                    CONFIG.reversed
+                        ? messages[
+                            messages.length - 1
+                        ]
+                        : messages[0];
+
+
+                if (oldestMessage) {
+
+                    removeMessage(
+                        oldestMessage
+                    );
+                }
+            }
+
+
+            // ==========================================
+            // AUTO REMOVE
+            // ==========================================
+
+            function scheduleMessageRemoval(
+                messageElement,
+                messageId
+            ) {
+
+                const timeout =
+                    setTimeout(
+                        () => {
+
+                            removeMessage(
+                                messageElement
+                            );
+
+                        },
+                        CONFIG.messageDuration + 250
+                    );
+
+
+                state.messageTimers.set(
+                    messageId,
+                    timeout
+                );
+            }
+
+
+            // ==========================================
+            // MESSAGE CREATION
+            // ==========================================
+
+            async function addMessageToOverlay(
+                data
+            ) {
+
+                if (
+                    !isValidMessage(data)
+                ) {
+                    return;
+                }
+
+
+                const {
+                    chatname,
+                    type,
+                    chatbadges,
+                    mid
+                } = data;
+
+
+                // ------------------------------------------
+                // CREATE DOM
+                // ------------------------------------------
+
+                const {
+                    messageElement,
+                    usernameElement,
+                    badgesContainer,
+                    messageContent
+                } =
+                    createMessageElement(
+                        data
+                    );
+
+
+                // ------------------------------------------
+                // MESSAGE ID
+                // ------------------------------------------
+
+                const messageId =
+                    mid ||
+                    `msg-${Date.now()}-${Math.random()
+                        .toString(36)
+                        .slice(2, 8)}`;
+
+
+                messageElement.id =
+                    messageId;
+
+
+                // ------------------------------------------
+                // DATA ATTRIBUTES
+                // ------------------------------------------
+
+                messageElement.dataset.platform =
+                    type || '';
+
+
+                messageElement.dataset.from =
+                    chatname;
+
+
+                // ------------------------------------------
+                // THEME
+                // ------------------------------------------
+
+                messageElement.classList.toggle(
+                    'dark',
+                    CONFIG.darkMode
+                );
+
+
+                // ------------------------------------------
+                // USERNAME
+                // ------------------------------------------
+
+                usernameElement.textContent =
+                    chatname;
+
+
+                usernameElement.classList.toggle(
+                    'own',
+                    CONFIG.useUserColor
+                );
+
+
+                if (CONFIG.useUserColor) {
+
+                    applyUserColor(
+                        usernameElement,
+                        getUserColor(data)
                     );
                 }
 
-                // ==========================================
+
+                // ------------------------------------------
+                // SOURCE
+                // ------------------------------------------
+
+                renderSource(
+                    badgesContainer,
+                    type
+                );
+
+
+                // ------------------------------------------
+                // BADGES
+                // ------------------------------------------
+
+                renderBadges(
+                    badgesContainer,
+                    chatbadges
+                );
+
+
+                // ------------------------------------------
+                // CONTENT
+                // ------------------------------------------
+
+                const contentImage =
+                    renderMessageContent(
+                        messageContent,
+                        data
+                    );
+
+
+                // ------------------------------------------
+                // INSERT
+                // ------------------------------------------
+
+                insertMessage(
+                    messageElement
+                );
+
+
+                // ------------------------------------------
                 // FORCE REFLOW
-                // ==========================================
+                // ------------------------------------------
 
                 void messageElement.offsetWidth;
 
+
+                // ------------------------------------------
+                // WAIT FOR IMAGE
+                // ------------------------------------------
+
+                if (contentImage) {
+
+                    await waitForImageLoad(
+                        contentImage
+                    );
+                }
+
+
+                // ------------------------------------------
+                // SCROLL
+                // ------------------------------------------
+
                 DOM.container.scrollTo({
-                    top: DOM.container.scrollHeight,
-                    behavior: 'smooth'
+
+                    top:
+                        DOM.container.scrollHeight,
+
+                    behavior:
+                        'smooth'
                 });
 
+
+                // ------------------------------------------
+                // NEXT FRAME
+                // ------------------------------------------
+
                 await nextFrame();
+
+
+                // ------------------------------------------
+                // EXPAND MESSAGE
+                // ------------------------------------------
 
                 messageElement.style.setProperty(
                     'max-height',
@@ -893,51 +1729,34 @@
                     'important'
                 );
 
+
+                // ------------------------------------------
+                // ANIMATION
+                // ------------------------------------------
+
                 messageElement.style.setProperty(
                     'animation-delay',
                     `0s, ${CONFIG.messageDuration}ms`
                 );
 
-                // ==========================================
+
+                // ------------------------------------------
                 // AUTO REMOVE
-                // ==========================================
+                // ------------------------------------------
 
-                const timeout =
-                    setTimeout(() => {
-
-                        removeMessage(
-                            messageElement
-                        );
-
-                    }, CONFIG.messageDuration + 250);
-
-                state.messageTimers.set(
-                    messageId,
-                    timeout
+                scheduleMessageRemoval(
+                    messageElement,
+                    messageId
                 );
 
-                // ==========================================
-                // LIMIT
-                // ==========================================
 
-                const messages =
-                    DOM.container.querySelectorAll('.chat');
+                // ------------------------------------------
+                // MESSAGE LIMIT
+                // ------------------------------------------
 
-                if (
-                    messages.length >
-                    CONFIG.maxMessages
-                ) {
-
-                    const oldestMessage =
-                        CONFIG.reversed
-                            ? messages[messages.length - 1]
-                            : messages[0];
-
-                    if (oldestMessage) {
-                        removeMessage(oldestMessage);
-                    }
-                }
+                enforceMessageLimit();
             }
+
 
             // ==========================================
             // IFRAME BRIDGE
@@ -946,31 +1765,46 @@
             function createBridgeIframe() {
 
                 const iframe =
-                    document.createElement('iframe');
+                    document.createElement(
+                        'iframe'
+                    );
+
 
                 iframe.src =
                     CONFIG.featuredMode
+
                         ? `https://vdo.socialstream.ninja/?ln&password=${CONFIG.password}&salt=vdo.ninja&label=overlay&exclude=${CONFIG.roomID}&scene&novideo&noaudio&cleanoutput&room=${CONFIG.roomID}`
+
                         : `https://vdo.socialstream.ninja/?ln&salt=vdo.ninja&password=${CONFIG.password}&push&label=dock&vd=0&ad=0&novideo&noaudio&autostart&cleanoutput&room=${CONFIG.roomID}`;
+
 
                 iframe.allow =
                     'midi;geolocation;microphone;';
 
-                iframe.style.cssText = `
-            width:0;
-            height:0;
-            position:fixed;
-            left:-100px;
-            top:-100px;
-            border:0;
-            pointer-events:none;
-        `;
 
-                document.body.appendChild(iframe);
+                iframe.style.cssText = `
+                    width: 0;
+                    height: 0;
+                    position: fixed;
+                    left: -100px;
+                    top: -100px;
+                    border: 0;
+                    pointer-events: none;
+                `;
+
+
+                document.body.appendChild(
+                    iframe
+                );
+
 
                 window.addEventListener(
                     'message',
                     ({ source, data }) => {
+
+                        // ------------------------------------------
+                        // SECURITY / SOURCE CHECK
+                        // ------------------------------------------
 
                         if (
                             source !==
@@ -979,12 +1813,20 @@
                             return;
                         }
 
+
+                        // ------------------------------------------
+                        // SSN DATA
+                        // ------------------------------------------
+
                         const overlayData =
-                            data?.dataReceived?.overlayNinja;
+                            data?.dataReceived
+                                ?.overlayNinja;
+
 
                         if (!overlayData) {
                             return;
                         }
+
 
                         addMessageToOverlay(
                             overlayData
@@ -992,8 +1834,10 @@
                     }
                 );
 
+
                 return iframe;
             }
+
 
             // ==========================================
             // WEBSOCKET
@@ -1005,27 +1849,57 @@
                     return;
                 }
 
+
+                // ------------------------------------------
+                // CLOSE PREVIOUS SOCKET
+                // ------------------------------------------
+
                 if (state.socket) {
+
                     state.socket.close();
                 }
+
+
+                // ------------------------------------------
+                // CREATE SOCKET
+                // ------------------------------------------
 
                 state.socket =
                     new WebSocket(
                         CONFIG.serverURL
                     );
 
-                state.socket.onopen = () => {
 
-                    state.reconnectAttempts = 0;
+                // ------------------------------------------
+                // OPEN
+                // ------------------------------------------
 
-                    state.socket.send(
-                        JSON.stringify({
-                            join: CONFIG.roomID,
-                            out: 3,
-                            in: 4
-                        })
-                    );
-                };
+                state.socket.onopen =
+                    () => {
+
+                        state.reconnectAttempts =
+                            0;
+
+
+                        state.socket.send(
+                            JSON.stringify({
+
+                                join:
+                                    CONFIG.roomID,
+
+                                out:
+                                    3,
+
+                                in:
+                                    4
+                            })
+                        );
+                    };
+
+
+                // ------------------------------------------
+                // MESSAGE
+                // ------------------------------------------
 
                 state.socket.onmessage =
                     ({ data }) => {
@@ -1034,13 +1908,20 @@
                             return;
                         }
 
+
                         try {
 
                             const parsed =
-                                JSON.parse(data);
+                                JSON.parse(
+                                    data
+                                );
+
 
                             if (parsed) {
-                                addMessageToOverlay(parsed);
+
+                                addMessageToOverlay(
+                                    parsed
+                                );
                             }
 
                         } catch (error) {
@@ -1053,6 +1934,11 @@
                         }
                     };
 
+
+                // ------------------------------------------
+                // ERROR
+                // ------------------------------------------
+
                 state.socket.onerror =
                     error => {
 
@@ -1062,23 +1948,32 @@
                         );
                     };
 
-                state.socket.onclose = () => {
 
-                    state.reconnectAttempts++;
+                // ------------------------------------------
+                // CLOSE / RECONNECT
+                // ------------------------------------------
 
-                    const reconnectDelay =
-                        Math.min(
-                            100 *
-                            state.reconnectAttempts,
-                            5000
+                state.socket.onclose =
+                    () => {
+
+                        state.reconnectAttempts++;
+
+
+                        const reconnectDelay =
+                            Math.min(
+                                100 *
+                                state.reconnectAttempts,
+                                5000
+                            );
+
+
+                        setTimeout(
+                            connectSocket,
+                            reconnectDelay
                         );
-
-                    setTimeout(
-                        connectSocket,
-                        reconnectDelay
-                    );
-                };
+                    };
             }
+
 
             // ==========================================
             // VISIBILITY RECOVERY
@@ -1089,18 +1984,33 @@
                 () => {
 
                     if (
-                        document.visibilityState === 'visible' &&
-                        CONFIG.useSocket &&
-                        (
-                            !state.socket ||
-                            state.socket.readyState !== WebSocket.OPEN
-                        )
+                        document.visibilityState !==
+                        'visible'
                     ) {
-
-                        connectSocket();
+                        return;
                     }
+
+
+                    if (
+                        !CONFIG.useSocket
+                    ) {
+                        return;
+                    }
+
+
+                    if (
+                        state.socket &&
+                        state.socket.readyState ===
+                        WebSocket.OPEN
+                    ) {
+                        return;
+                    }
+
+
+                    connectSocket();
                 }
             );
+
 
             // ==========================================
             // INIT
@@ -1111,7 +2021,9 @@
             connectSocket();
 
         })();
+
     </script>
+
 </body>
 
 </html>
