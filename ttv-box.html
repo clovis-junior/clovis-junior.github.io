@@ -1,119 +1,636 @@
+
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="referrer" content="no-referrer-when-downgrade">
-    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
-    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+    <meta name="referrer" content="no-referrer">
+    <meta name="color-scheme" content="dark">
     <title>Twitch BoxArt Overlay</title>
-    <style type="text/css">
+
+    <style>
         *,
-        *:after,
-        *:before {
-            margin: 0;
-            padding: 0;
+        *::before,
+        *::after {
             box-sizing: border-box;
-        }
-        * {
-            outline: 0;
-            border: none;
-            font-family: inherit;
-            font-size: 100%;
-            background: transparent;
-            vertical-align: baseline;
-        }
-        html, body {
             margin: 0;
             padding: 0;
-            width: 100vw;
-            height: 100vh;
-            overflow: hidden;
-            background-color: transparent;
         }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: transparent;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+        }
+
         #boxart {
+            display: block;
             width: 100%;
             height: 100%;
             object-fit: cover;
             opacity: 0;
-            transition: opacity 0.35s ease-in-out;
+            transition: opacity 250ms ease-in-out;
         }
+
         #boxart.loaded {
             opacity: 1;
         }
     </style>
 </head>
+
 <body>
-    <img id="boxart" alt="">
 
-    <script type="text/javascript" defer>
-(() => {
-    'use strict';
+    <img id="boxart" alt="Twitch Category BoxArt">
 
-    const params = new URLSearchParams(window.location.search);
-    const CHANNEL = params.get('channel') || '';
-    const SIZE = params.get('size') || '600x800';
-    const INTERVAL = Math.max(5000, (parseInt(params.get('interval'), 10) || 15) * 1000);
-    const FALLBACK_ID = params.get('fallback_id') || '';
+    <script>
+    (() => {
+        'use strict';
 
-    if (!CHANNEL) return;
+        // ================================================
+        // CONFIGURATION
+        // ================================================
 
-    const img = document.getElementById('boxart');
-    let currentArtUrl = '';
+        const CONFIG = (() => {
+            const params = new URLSearchParams(window.location.search);
 
-    function getFallbackUrl() {
-        return 'https://jtvnw.net' + encodeURIComponent(FALLBACK_ID) + '_IGDB-' + encodeURIComponent(SIZE) + '.jpg';
-    }
+            const channel = (params.get('channel') || '')
+                .trim()
+                .replace(/^@/, '')
+                .toLowerCase();
 
-    function applyImage(url) {
-        if (!url || url === currentArtUrl) return;
+            const size = params.get('size') || '600x800';
 
-        const isFirstLoad = !currentArtUrl;
-        const preloader = new Image();
+            const requestedInterval = Number.parseInt(
+                params.get('interval'),
+                10
+            );
 
-        preloader.onload = () => {
-            currentArtUrl = url;
+            const requestedFit = params.get('fit') || 'cover';
 
-            if (isFirstLoad) {
-                img.src = url;
-                img.classList.add('loaded')
+            return {
+                channel,
+
+                size: /^\d{2,4}x\d{2,4}$/.test(size)
+                    ? size
+                    : '600x800',
+
+                interval: Math.max(
+                    15,
+                    Number.isFinite(requestedInterval) && requestedInterval > 0
+                        ? requestedInterval
+                        : 180
+                ) * 1000,
+
+                fallback: params.get('fallback') !== 'false',
+
+                fallbackId: params.get('fallback_id') || '404_boxart',
+
+                fit: ['cover', 'contain', 'fill', 'none', 'scale-down']
+                    .includes(requestedFit)
+                    ? requestedFit
+                    : 'cover',
+
+                debug: params.get('debug') === 'true'
+            };
+        })();
+
+
+        // ================================================
+        // CONSTANTS
+        // ================================================
+
+        const CONSTANTS = {
+            API_URL: 'https://decapi.me/twitch/game/',
+
+            INDEX_URL:
+                'https://raw.githubusercontent.com/seanquijote/twitch-category-index/main/data/index.json',
+
+            TWITCH_CDN:
+                'https://static-cdn.jtvnw.net',
+
+            CACHE_KEY:
+                'twitch_boxart_category_index_v1',
+
+            CACHE_TTL:
+                24 * 60 * 60 * 1000,
+
+            TRANSITION_DURATION:
+                250
+        };
+
+
+        // ================================================
+        // ELEMENTS
+        // ================================================
+
+        const ELEMENTS = {
+            boxart: document.getElementById('boxart')
+        };
+
+        ELEMENTS.boxart.style.objectFit = CONFIG.fit;
+
+
+        // ================================================
+        // STATE
+        // ================================================
+
+        const STATE = {
+            currentArtUrl: '',
+            pendingArtUrl: '',
+            currentCategory: '',
+
+            categoryIndex: null,
+            indexPromise: null,
+
+            requestController: null,
+            requestTimer: null,
+            imageTimer: null,
+
+            imageVersion: 0,
+            isFirstLoad: true
+        };
+
+
+        // ================================================
+        // DEBUG
+        // ================================================
+
+        function log(message, data = null) {
+            if (!CONFIG.debug) return;
+
+            if (data !== null) {
+                console.log('[Twitch BoxArt]', message, data);
             } else {
-                img.classList.remove('loaded');
-                setTimeout(() => {
-                    img.src = url;
-                    img.classList.add('loaded')
-                }, 300)
+                console.log('[Twitch BoxArt]', message);
             }
-        };
-
-        preloader.onerror = () => {
-            if (FALLBACK_ID && !url.includes(FALLBACK_ID))
-                applyImage(getFallbackUrl());
-        };
-
-        preloader.src = url
-    }
-
-    async function checkBoxArt() {
-        try {
-            const apiUrl = 'https://decapi.me' + encodeURIComponent(CHANNEL) + '?size=' + encodeURIComponent(SIZE);
-            const response = await fetch(apiUrl, { cache: 'no-store' });
-            if (!response.ok) return;
-
-            const artUrl = (await response.text()).trim();
-
-            if (artUrl && artUrl.startsWith('http'))
-                applyImage(artUrl);
-            else if (FALLBACK_ID)
-                applyImage(getFallbackUrl());
-        } catch (err) {
-            console.error('Erro ao buscar BoxArt:', err);
         }
-    }
 
-    checkBoxArt();
-    setInterval(checkBoxArt, INTERVAL)
-})()
+
+        function logError(message, error = null) {
+            if (!CONFIG.debug) return;
+
+            console.error('[Twitch BoxArt]', message, error || '');
+        }
+
+
+        // ================================================
+        // VALIDATION
+        // ================================================
+
+        function validateConfiguration() {
+            if (!CONFIG.channel) {
+                logError('Parâmetro channel não informado.');
+                return false;
+            }
+
+            if (!/^[a-z0-9_]{1,25}$/.test(CONFIG.channel)) {
+                logError('Nome do canal inválido.');
+                return false;
+            }
+
+            if (!CONFIG.fallbackId) {
+                logError('Identificador do fallback inválido.');
+                return false;
+            }
+
+            return true;
+        }
+
+
+        // ================================================
+        // CATEGORY NORMALIZATION
+        // ================================================
+
+        function normalizeCategory(name) {
+            return String(name || '')
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .trim()
+                .toLowerCase()
+                .replace(/\s+/g, ' ');
+        }
+
+
+        // ================================================
+        // CATEGORY INDEX CACHE
+        // ================================================
+
+        function getCachedIndex() {
+            try {
+                const cached = localStorage.getItem(
+                    CONSTANTS.CACHE_KEY
+                );
+
+                if (!cached) return null;
+
+                const parsed = JSON.parse(cached);
+
+                if (
+                    !parsed ||
+                    !Array.isArray(parsed.categories) ||
+                    !Number.isFinite(parsed.timestamp)
+                ) {
+                    return null;
+                }
+
+                return parsed;
+
+            } catch (error) {
+                logError('Erro ao ler o cache local.', error);
+                return null;
+            }
+        }
+
+
+        function saveCachedIndex(categories) {
+            try {
+                localStorage.setItem(
+                    CONSTANTS.CACHE_KEY,
+                    JSON.stringify({
+                        timestamp: Date.now(),
+                        categories
+                    })
+                );
+
+                log('Índice de categorias armazenado no cache.');
+
+            } catch (error) {
+                // O cache local é opcional.
+                // O overlay continua funcionando normalmente.
+                logError('Não foi possível salvar o cache local.', error);
+            }
+        }
+
+
+        // ================================================
+        // BUILD CATEGORY INDEX
+        // ================================================
+
+        function buildCategoryIndex(categories) {
+            const index = new Map();
+
+            for (const category of categories) {
+                if (!category || !category.name || !category.box_art_url) {
+                    continue;
+                }
+
+                const name = normalizeCategory(category.name);
+
+                if (!name) continue;
+
+                index.set(name, category.box_art_url);
+            }
+
+            return index;
+        }
+
+
+        // ================================================
+        // LOAD CATEGORY INDEX
+        // ================================================
+
+        async function loadCategoryIndex() {
+            if (STATE.categoryIndex) {
+                return STATE.categoryIndex;
+            }
+
+            if (STATE.indexPromise) {
+                return STATE.indexPromise;
+            }
+
+            STATE.indexPromise = (async () => {
+                const cached = getCachedIndex();
+
+                // Use the cached index while it is valid.
+                if (
+                    cached &&
+                    Date.now() - cached.timestamp < CONSTANTS.CACHE_TTL
+                ) {
+                    log('Utilizando índice local de categorias.');
+
+                    STATE.categoryIndex = buildCategoryIndex(
+                        cached.categories
+                    );
+
+                    return STATE.categoryIndex;
+                }
+
+                try {
+                    log('Atualizando índice de categorias.');
+
+                    const response = await fetch(
+                        CONSTANTS.INDEX_URL,
+                        {
+                            method: 'GET',
+                            cache: 'force-cache'
+                        }
+                    );
+
+                    if (!response.ok) {
+                        throw new Error(
+                            `HTTP ${response.status}`
+                        );
+                    }
+
+                    const data = await response.json();
+
+                    if (!Array.isArray(data.categories)) {
+                        throw new Error('Índice de categorias inválido.');
+                    }
+
+                    saveCachedIndex(data.categories);
+
+                    STATE.categoryIndex = buildCategoryIndex(
+                        data.categories
+                    );
+
+                    log('Índice atualizado.', {
+                        total: STATE.categoryIndex.size,
+                        lastSync: data.meta?.last_synced
+                    });
+
+                    return STATE.categoryIndex;
+
+                } catch (error) {
+                    logError('Falha ao atualizar índice.', error);
+
+                    // Keep using an expired cache if available.
+                    if (cached && Array.isArray(cached.categories)) {
+                        log('Utilizando índice local expirado.');
+
+                        STATE.categoryIndex = buildCategoryIndex(
+                            cached.categories
+                        );
+
+                        return STATE.categoryIndex;
+                    }
+
+                    return null;
+                }
+            })();
+
+            return STATE.indexPromise;
+        }
+
+
+        // ================================================
+        // IMAGE URLS
+        // ================================================
+
+        function getFallbackUrl() {
+            return (
+                `${CONSTANTS.TWITCH_CDN}/ttv-static/` +
+                `${encodeURIComponent(CONFIG.fallbackId)}-` +
+                `${CONFIG.size}.jpg`
+            );
+        }
+
+
+        function getCategoryImage(categoryUrl) {
+            if (!categoryUrl) return '';
+
+            const [width, height] = CONFIG.size.split('x');
+
+            return categoryUrl
+                .replace('{width}', width)
+                .replace('{height}', height);
+        }
+
+
+        // ================================================
+        // IMAGE MANAGEMENT
+        // ================================================
+
+        function applyImage(url, isFallback = false) {
+            if (!url) return;
+
+            if (
+                url === STATE.currentArtUrl ||
+                url === STATE.pendingArtUrl
+            ) {
+                return;
+            }
+
+            const version = ++STATE.imageVersion;
+
+            STATE.pendingArtUrl = url;
+
+            const preloader = new Image();
+
+            preloader.onload = () => {
+                if (version !== STATE.imageVersion) return;
+
+                if (STATE.imageTimer) {
+                    clearTimeout(STATE.imageTimer);
+                    STATE.imageTimer = null;
+                }
+
+                const replaceImage = () => {
+                    if (version !== STATE.imageVersion) return;
+
+                    ELEMENTS.boxart.src = url;
+                    ELEMENTS.boxart.classList.add('loaded');
+
+                    STATE.currentArtUrl = url;
+                    STATE.pendingArtUrl = '';
+
+                    STATE.isFirstLoad = false;
+
+                    log(
+                        isFallback
+                            ? 'Fallback aplicado.'
+                            : 'BoxArt atualizada.',
+                        url
+                    );
+                };
+
+                if (STATE.isFirstLoad) {
+                    replaceImage();
+                    return;
+                }
+
+                ELEMENTS.boxart.classList.remove('loaded');
+
+                STATE.imageTimer = setTimeout(
+                    replaceImage,
+                    CONSTANTS.TRANSITION_DURATION
+                );
+            };
+
+            preloader.onerror = () => {
+                if (version !== STATE.imageVersion) return;
+
+                STATE.pendingArtUrl = '';
+
+                logError('Falha ao carregar imagem.', url);
+
+                if (!isFallback && CONFIG.fallback) {
+                    applyImage(getFallbackUrl(), true);
+                }
+            };
+
+            preloader.src = url;
+        }
+
+
+        // ================================================
+        // CATEGORY RESOLUTION
+        // ================================================
+
+        async function resolveCategory(categoryName) {
+            const index = await loadCategoryIndex();
+
+            if (!index) {
+                logError('Índice de categorias indisponível.');
+
+                if (CONFIG.fallback) {
+                    applyImage(getFallbackUrl(), true);
+                }
+
+                return;
+            }
+
+            const normalizedName = normalizeCategory(categoryName);
+
+            const categoryUrl = index.get(normalizedName);
+
+            if (!categoryUrl) {
+                logError('Categoria não encontrada no índice.', categoryName);
+
+                if (CONFIG.fallback) {
+                    applyImage(getFallbackUrl(), true);
+                }
+
+                return;
+            }
+
+            const imageUrl = getCategoryImage(categoryUrl);
+
+            if (!imageUrl) return;
+
+            applyImage(imageUrl);
+        }
+
+
+        // ================================================
+        // TWITCH CATEGORY REQUEST
+        // ================================================
+
+        async function checkBoxArt() {
+            if (STATE.requestController) {
+                STATE.requestController.abort();
+            }
+
+            const controller = new AbortController();
+
+            STATE.requestController = controller;
+
+            try {
+                const apiUrl =
+                    CONSTANTS.API_URL +
+                    encodeURIComponent(CONFIG.channel);
+
+                log('Consultando categoria.', CONFIG.channel);
+
+                const response = await fetch(apiUrl, {
+                    method: 'GET',
+                    cache: 'no-store',
+                    signal: controller.signal
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const categoryName = (await response.text()).trim();
+
+                if (controller.signal.aborted) return;
+
+                if (!categoryName) {
+                    log('Canal sem categoria definida.');
+
+                    STATE.currentCategory = '';
+
+                    if (CONFIG.fallback) {
+                        applyImage(getFallbackUrl(), true);
+                    }
+
+                    return;
+                }
+
+                if (categoryName === STATE.currentCategory) {
+                    log('Categoria sem alterações.');
+                    return;
+                }
+
+                log('Nova categoria detectada.', categoryName);
+
+                STATE.currentCategory = categoryName;
+
+                await resolveCategory(categoryName);
+
+            } catch (error) {
+                if (error.name === 'AbortError') return;
+
+                logError('Erro ao consultar categoria.', error);
+
+                // Do not remove the last valid image on temporary errors.
+                if (STATE.isFirstLoad && CONFIG.fallback) {
+                    applyImage(getFallbackUrl(), true);
+                }
+
+            } finally {
+                if (STATE.requestController === controller) {
+                    STATE.requestController = null;
+                }
+            }
+        }
+
+
+        // ================================================
+        // UPDATE SCHEDULER
+        // ================================================
+
+        function scheduleNextCheck() {
+            if (STATE.requestTimer) {
+                clearTimeout(STATE.requestTimer);
+            }
+
+            STATE.requestTimer = setTimeout(async () => {
+                await checkBoxArt();
+                scheduleNextCheck();
+            }, CONFIG.interval);
+        }
+
+
+        // ================================================
+        // INITIALIZATION
+        // ================================================
+
+        async function initialize() {
+            if (!validateConfiguration()) return;
+
+            log('Overlay inicializado.', {
+                channel: CONFIG.channel,
+                size: CONFIG.size,
+                interval: CONFIG.interval / 1000,
+                fallback: CONFIG.fallback,
+                fit: CONFIG.fit
+            });
+
+            await checkBoxArt();
+
+            scheduleNextCheck()
+        }
+
+        initialize()
+    })()
     </script>
 </body>
 </html>
