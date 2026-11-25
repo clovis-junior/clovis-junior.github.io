@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+    <title>Twitch BoxArt Overlay</title>
+    <style type="text/css">
+        *,
+        *:after,
+        *:before {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        * {
+            outline: 0;
+            border: none;
+            font-family: inherit;
+            font-size: 100%;
+            background: transparent;
+            vertical-align: baseline;
+        }
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background-color: transparent;
+        }
+        #boxart {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0;
+            transition: opacity 0.35s ease-in-out;
+        }
+        #boxart.loaded {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <img id="boxart" alt="">
+
+    <script type="text/javascript" defer>
+        (() => {
+            'use strict';
+
+            const params = new URLSearchParams(window.location.search);
+            const CHANNEL = params.get('channel') || 'Clovao';
+            const SIZE = params.get('size') || '600x800';
+            const INTERVAL = Math.max(5000, (parseInt(params.get('interval'), 10) || 15) * 1000);
+            const FALLBACK_ID = params.get('fallback_id') || '';
+
+            const img = document.getElementById('boxart');
+            let currentArtUrl = '';
+
+            function applyImage(url) {
+                if (!url || url === currentArtUrl) return;
+
+                const isFirstLoad = !currentArtUrl;
+                const preloader = new Image();
+
+                preloader.onload = () => {
+                    currentArtUrl = url;
+
+                    if (isFirstLoad) {
+                        img.src = url;
+                        img.classList.add('loaded')
+                    } else {
+                        img.classList.remove('loaded');
+                        setTimeout(() => {
+                            img.src = url;
+                            img.classList.add('loaded')
+                        }, 300)
+                    }
+                };
+
+                preloader.onerror = () => {
+                    if (FALLBACK_ID && !url.includes(FALLBACK_ID)) {
+                        applyImage(`https://jtvnw.net{FALLBACK_ID}_IGDB-${SIZE}.jpg`);
+                    }
+                };
+
+                preloader.src = url;
+            }
+
+            async function checkBoxArt() {
+                try {
+                    const response = await fetch(
+                        `https://decapi.me{encodeURIComponent(CHANNEL)}?size=${encodeURIComponent(SIZE)}`,
+                        { cache: 'no-store' }
+                    );
+                    if (!response.ok) return;
+
+                    const artUrl = (await response.text()).trim();
+
+                    if (artUrl && artUrl.startsWith('http'))
+                        applyImage(artUrl);
+                    else if (FALLBACK_ID)
+                        applyImage(`https://jtvnw.net{FALLBACK_ID}_IGDB-${SIZE}.jpg`);
+                } catch (err) {
+                    console.error('Erro ao buscar BoxArt:', err);
+                }
+            }
+
+            checkBoxArt();
+            setInterval(checkBoxArt, INTERVAL)
+        })()
+    </script>
+</body>
+</html>
