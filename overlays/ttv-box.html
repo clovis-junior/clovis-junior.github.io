@@ -1,20 +1,30 @@
 
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="referrer" content="no-referrer">
-    <meta name="color-scheme" content="dark">
+
+    <link
+        rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"
+    >
+
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
+
     <title>Twitch BoxArt Overlay</title>
 
     <style>
+        @charset "UTF-8";
+
         *,
         *::before,
         *::after {
-            box-sizing: border-box;
             margin: 0;
             padding: 0;
+            box-sizing: border-box;
         }
 
         html,
@@ -29,35 +39,92 @@
             font-family: Arial, sans-serif;
         }
 
-        #boxart {
-            display: block;
+        /* ================================================
+           BOXART CONTAINER
+        ================================================ */
+
+        #boxart-container {
+            position: relative;
+
             width: 100%;
             height: 100%;
-            object-fit: cover;
-            opacity: 0;
-            transition: opacity 250ms ease-in-out;
+
+            overflow: hidden;
+
+            background: transparent;
         }
 
-        #boxart.loaded {
+        /* ================================================
+           BOXART LAYERS
+        ================================================ */
+
+        .boxart-layer {
+            position: absolute;
+            inset: 0;
+
+            display: block;
+
+            width: 100%;
+            height: 100%;
+
+            object-fit: cover;
+
+            opacity: 0;
+            visibility: hidden;
+
+            pointer-events: none;
+        }
+
+        .boxart-layer.visible {
             opacity: 1;
+            visibility: visible;
+        }
+
+        .boxart-layer.animating {
+            will-change: transform, opacity;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .boxart-layer.animating {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+            }
         }
     </style>
 </head>
 
 <body>
 
-    <img id="boxart" alt="Twitch Category BoxArt">
+    <div id="boxart-container">
+
+        <img
+            id="boxart-a"
+            class="boxart-layer"
+            alt="Twitch Category BoxArt"
+        >
+
+        <img
+            id="boxart-b"
+            class="boxart-layer"
+            alt="Twitch Category BoxArt"
+        >
+
+    </div>
 
     <script>
     (() => {
         'use strict';
+
 
         // ================================================
         // CONFIGURATION
         // ================================================
 
         const CONFIG = (() => {
-            const params = new URLSearchParams(window.location.search);
+
+            const params = new URLSearchParams(
+                window.location.search
+            );
 
             const channel = (params.get('channel') || '')
                 .trim()
@@ -73,7 +140,58 @@
 
             const requestedFit = params.get('fit') || 'cover';
 
+            // --------------------------------------------
+            // ANIMATION CONFIGURATION
+            // --------------------------------------------
+
+            function getAnimation(name, defaultValue) {
+
+                const value = params.get(name);
+
+                if (value === null) {
+                    return defaultValue;
+                }
+
+                const animation = value.trim();
+
+                if (animation.toLowerCase() === 'false') {
+                    return '';
+                }
+
+                if (!animation) {
+                    return defaultValue;
+                }
+
+                // Accept names with or without the prefix.
+                const normalized = animation.replace(
+                    /^animate__/,
+                    ''
+                );
+
+                // Prevent invalid class names.
+                if (!/^[a-zA-Z][a-zA-Z0-9]*$/.test(normalized)) {
+                    return defaultValue;
+                }
+
+                return normalized;
+            }
+
+
+            const speeds = {
+                slow: 'animate__slow',
+                slower: 'animate__slower',
+                fast: 'animate__fast',
+                faster: 'animate__faster'
+            };
+
+
+            const requestedSpeed = (
+                params.get('animationSpeed') || ''
+            ).trim().toLowerCase();
+
+
             return {
+
                 channel,
 
                 size: /^\d{2,4}x\d{2,4}$/.test(size)
@@ -82,22 +200,48 @@
 
                 interval: Math.max(
                     15,
-                    Number.isFinite(requestedInterval) && requestedInterval > 0
+                    Number.isFinite(requestedInterval) &&
+                    requestedInterval > 0
                         ? requestedInterval
                         : 180
                 ) * 1000,
 
-                fallback: params.get('fallback') !== 'false',
+                fallback: (
+                    params.get('fallback') || 'true'
+                ).toLowerCase() !== 'false',
 
-                fallbackId: params.get('fallback_id') || '404_boxart',
+                fallbackId: (
+                    params.get('fallback_id') || '404_boxart'
+                ).trim(),
 
-                fit: ['cover', 'contain', 'fill', 'none', 'scale-down']
-                    .includes(requestedFit)
+                fit: [
+                    'cover',
+                    'contain',
+                    'fill',
+                    'none',
+                    'scale-down'
+                ].includes(requestedFit)
                     ? requestedFit
                     : 'cover',
 
-                debug: params.get('debug') === 'true'
+                debug: params.get('debug') === 'true',
+
+                // Animation names.
+                animationIn: getAnimation(
+                    'animationIn',
+                    'fadeIn'
+                ),
+
+                animationOut: getAnimation(
+                    'animationOut',
+                    'fadeOut'
+                ),
+
+                // Global animation speed.
+                animationSpeed: speeds[requestedSpeed] || ''
+
             };
+
         })();
 
 
@@ -106,7 +250,9 @@
         // ================================================
 
         const CONSTANTS = {
-            API_URL: 'https://decapi.me/twitch/game/',
+
+            API_URL:
+                'https://decapi.me/twitch/game/',
 
             INDEX_URL:
                 'https://raw.githubusercontent.com/seanquijote/twitch-category-index/main/data/index.json',
@@ -120,8 +266,11 @@
             CACHE_TTL:
                 24 * 60 * 60 * 1000,
 
-            TRANSITION_DURATION:
-                250
+            // Safety timeout in case animationend
+            // is not dispatched by the browser.
+            ANIMATION_TIMEOUT_PADDING:
+                150
+
         };
 
 
@@ -130,10 +279,23 @@
         // ================================================
 
         const ELEMENTS = {
-            boxart: document.getElementById('boxart')
+
+            container: document.getElementById(
+                'boxart-container'
+            ),
+
+            layers: [
+                document.getElementById('boxart-a'),
+                document.getElementById('boxart-b')
+            ]
+
         };
 
-        ELEMENTS.boxart.style.objectFit = CONFIG.fit;
+
+        // Apply the configured image fitting.
+        ELEMENTS.layers.forEach(layer => {
+            layer.style.objectFit = CONFIG.fit;
+        });
 
 
         // ================================================
@@ -141,19 +303,33 @@
         // ================================================
 
         const STATE = {
+
+            // Current image.
+            currentIndex: -1,
             currentArtUrl: '',
             pendingArtUrl: '',
+
+            // Current Twitch category.
             currentCategory: '',
 
+            // Category index.
             categoryIndex: null,
             indexPromise: null,
 
+            // Twitch requests.
             requestController: null,
             requestTimer: null,
-            imageTimer: null,
 
+            // Image management.
             imageVersion: 0,
-            isFirstLoad: true
+
+            // Animation management.
+            transitionVersion: 0,
+            transition: null,
+
+            // Overlay visibility.
+            isDocumentHidden: false
+
         };
 
 
@@ -162,6 +338,7 @@
         // ================================================
 
         function log(message, data = null) {
+
             if (!CONFIG.debug) return;
 
             if (data !== null) {
@@ -169,13 +346,20 @@
             } else {
                 console.log('[Twitch BoxArt]', message);
             }
+
         }
 
 
         function logError(message, error = null) {
+
             if (!CONFIG.debug) return;
 
-            console.error('[Twitch BoxArt]', message, error || '');
+            console.error(
+                '[Twitch BoxArt]',
+                message,
+                error || ''
+            );
+
         }
 
 
@@ -184,6 +368,7 @@
         // ================================================
 
         function validateConfiguration() {
+
             if (!CONFIG.channel) {
                 logError('Parâmetro channel não informado.');
                 return false;
@@ -200,6 +385,7 @@
             }
 
             return true;
+
         }
 
 
@@ -208,12 +394,14 @@
         // ================================================
 
         function normalizeCategory(name) {
+
             return String(name || '')
                 .normalize('NFD')
                 .replace(/[\u0300-\u036f]/g, '')
                 .trim()
                 .toLowerCase()
                 .replace(/\s+/g, ' ');
+
         }
 
 
@@ -222,7 +410,9 @@
         // ================================================
 
         function getCachedIndex() {
+
             try {
+
                 const cached = localStorage.getItem(
                     CONSTANTS.CACHE_KEY
                 );
@@ -242,14 +432,23 @@
                 return parsed;
 
             } catch (error) {
-                logError('Erro ao ler o cache local.', error);
+
+                logError(
+                    'Erro ao ler o cache local.',
+                    error
+                );
+
                 return null;
+
             }
+
         }
 
 
         function saveCachedIndex(categories) {
+
             try {
+
                 localStorage.setItem(
                     CONSTANTS.CACHE_KEY,
                     JSON.stringify({
@@ -261,10 +460,17 @@
                 log('Índice de categorias armazenado no cache.');
 
             } catch (error) {
-                // O cache local é opcional.
-                // O overlay continua funcionando normalmente.
-                logError('Não foi possível salvar o cache local.', error);
+
+                // Local cache is optional.
+                // The overlay continues working normally.
+
+                logError(
+                    'Não foi possível salvar o cache local.',
+                    error
+                );
+
             }
+
         }
 
 
@@ -273,21 +479,34 @@
         // ================================================
 
         function buildCategoryIndex(categories) {
+
             const index = new Map();
 
             for (const category of categories) {
-                if (!category || !category.name || !category.box_art_url) {
+
+                if (
+                    !category ||
+                    !category.name ||
+                    !category.box_art_url
+                ) {
                     continue;
                 }
 
-                const name = normalizeCategory(category.name);
+                const name = normalizeCategory(
+                    category.name
+                );
 
                 if (!name) continue;
 
-                index.set(name, category.box_art_url);
+                index.set(
+                    name,
+                    category.box_art_url
+                );
+
             }
 
             return index;
+
         }
 
 
@@ -296,6 +515,7 @@
         // ================================================
 
         async function loadCategoryIndex() {
+
             if (STATE.categoryIndex) {
                 return STATE.categoryIndex;
             }
@@ -305,13 +525,16 @@
             }
 
             STATE.indexPromise = (async () => {
+
                 const cached = getCachedIndex();
 
-                // Use the cached index while it is valid.
+                // Use the cached index while valid.
                 if (
                     cached &&
-                    Date.now() - cached.timestamp < CONSTANTS.CACHE_TTL
+                    Date.now() - cached.timestamp <
+                    CONSTANTS.CACHE_TTL
                 ) {
+
                     log('Utilizando índice local de categorias.');
 
                     STATE.categoryIndex = buildCategoryIndex(
@@ -319,9 +542,11 @@
                     );
 
                     return STATE.categoryIndex;
+
                 }
 
                 try {
+
                     log('Atualizando índice de categorias.');
 
                     const response = await fetch(
@@ -341,7 +566,9 @@
                     const data = await response.json();
 
                     if (!Array.isArray(data.categories)) {
-                        throw new Error('Índice de categorias inválido.');
+                        throw new Error(
+                            'Índice de categorias inválido.'
+                        );
                     }
 
                     saveCachedIndex(data.categories);
@@ -358,10 +585,18 @@
                     return STATE.categoryIndex;
 
                 } catch (error) {
-                    logError('Falha ao atualizar índice.', error);
 
-                    // Keep using an expired cache if available.
-                    if (cached && Array.isArray(cached.categories)) {
+                    logError(
+                        'Falha ao atualizar índice.',
+                        error
+                    );
+
+                    // Use expired cache when available.
+                    if (
+                        cached &&
+                        Array.isArray(cached.categories)
+                    ) {
+
                         log('Utilizando índice local expirado.');
 
                         STATE.categoryIndex = buildCategoryIndex(
@@ -369,13 +604,28 @@
                         );
 
                         return STATE.categoryIndex;
+
                     }
 
                     return null;
+
                 }
+
             })();
 
-            return STATE.indexPromise;
+            try {
+
+                return await STATE.indexPromise;
+
+            } finally {
+
+                // Allow a new attempt if loading failed.
+                if (!STATE.categoryIndex) {
+                    STATE.indexPromise = null;
+                }
+
+            }
+
         }
 
 
@@ -384,15 +634,18 @@
         // ================================================
 
         function getFallbackUrl() {
+
             return (
                 `${CONSTANTS.TWITCH_CDN}/ttv-static/` +
                 `${encodeURIComponent(CONFIG.fallbackId)}-` +
                 `${CONFIG.size}.jpg`
             );
+
         }
 
 
         function getCategoryImage(categoryUrl) {
+
             if (!categoryUrl) return '';
 
             const [width, height] = CONFIG.size.split('x');
@@ -400,6 +653,469 @@
             return categoryUrl
                 .replace('{width}', width)
                 .replace('{height}', height);
+
+        }
+
+
+        // ================================================
+        // IMAGE PRELOADER
+        // ================================================
+
+        function preloadImage(url) {
+
+            return new Promise(resolve => {
+
+                const image = new Image();
+
+                image.onload = () => {
+                    resolve(true);
+                };
+
+                image.onerror = () => {
+                    resolve(false);
+                };
+
+                image.src = url;
+
+            });
+
+        }
+
+
+        // ================================================
+        // ANIMATION UTILITIES
+        // ================================================
+
+        function getAnimationDuration(element) {
+
+            const style = window.getComputedStyle(element);
+
+            if (
+                !style.animationName ||
+                style.animationName === 'none'
+            ) {
+                return 0;
+            }
+
+            const durations = style.animationDuration
+                .split(',')
+                .map(value => {
+                    const time = parseFloat(value) || 0;
+
+                    return value.includes('ms')
+                        ? time
+                        : time * 1000;
+                });
+
+            const delays = style.animationDelay
+                .split(',')
+                .map(value => {
+                    const time = parseFloat(value) || 0;
+
+                    return value.includes('ms')
+                        ? time
+                        : time * 1000;
+                });
+
+            const iterations = style.animationIterationCount
+                .split(',')
+                .map(value => {
+                    const count = parseFloat(value);
+
+                    return Number.isFinite(count)
+                        ? count
+                        : 1;
+                });
+
+            let maximum = 0;
+
+            for (let i = 0; i < durations.length; i++) {
+
+                const duration = durations[i] || 0;
+                const delay = delays[i] || 0;
+                const iteration = iterations[i] || 1;
+
+                maximum = Math.max(
+                    maximum,
+                    duration * iteration + delay
+                );
+
+            }
+
+            return maximum;
+
+        }
+
+
+        function clearAnimationClasses(element) {
+
+            element.classList.remove(
+                'animate__animated',
+                'animating'
+            );
+
+            // Remove animation classes left by previous transitions.
+            for (const className of Array.from(element.classList)) {
+
+                if (className.startsWith('animate__')) {
+                    element.classList.remove(className);
+                }
+
+            }
+
+        }
+
+
+        // ================================================
+        // RUN ANIMATE.CSS ANIMATION
+        // ================================================
+
+        function runAnimation(element, animationName) {
+
+            let finished = false;
+            let watchdog = null;
+
+            let resolvePromise;
+
+            const promise = new Promise(resolve => {
+                resolvePromise = resolve;
+            });
+
+
+            function cleanup() {
+
+                element.removeEventListener(
+                    'animationend',
+                    handleAnimationEnd
+                );
+
+                element.removeEventListener(
+                    'animationcancel',
+                    handleAnimationEnd
+                );
+
+                if (watchdog !== null) {
+                    clearTimeout(watchdog);
+                    watchdog = null;
+                }
+
+                element.classList.remove('animating');
+
+            }
+
+
+            function finish() {
+
+                if (finished) return;
+
+                finished = true;
+
+                cleanup();
+
+                resolvePromise();
+
+            }
+
+
+            function handleAnimationEnd(event) {
+
+                // Ignore animations originating from child elements.
+                if (event.target !== element) return;
+
+                finish();
+
+            }
+
+
+            function cancel() {
+
+                if (finished) return;
+
+                finish();
+
+                clearAnimationClasses(element);
+
+            }
+
+
+            // No animation requested.
+            if (
+                !animationName ||
+                window.matchMedia(
+                    '(prefers-reduced-motion: reduce)'
+                ).matches
+            ) {
+
+                finish();
+
+                return {
+                    promise,
+                    cancel
+                };
+
+            }
+
+
+            clearAnimationClasses(element);
+
+
+            // Prepare Animate.css classes.
+            element.classList.add(
+                'animate__animated',
+                `animate__${animationName}`
+            );
+
+            if (CONFIG.animationSpeed) {
+
+                element.classList.add(
+                    CONFIG.animationSpeed
+                );
+
+            }
+
+
+            element.classList.add('animating');
+
+
+            // Force reflow before starting the animation.
+            void element.offsetWidth;
+
+
+            const duration = getAnimationDuration(element);
+
+
+            // Invalid animation name or unavailable CSS.
+            if (duration <= 0) {
+
+                finish();
+
+                return {
+                    promise,
+                    cancel
+                };
+
+            }
+
+
+            element.addEventListener(
+                'animationend',
+                handleAnimationEnd
+            );
+
+            element.addEventListener(
+                'animationcancel',
+                handleAnimationEnd
+            );
+
+
+            // Safety fallback if animationend is not dispatched.
+            watchdog = setTimeout(
+                finish,
+                duration + CONSTANTS.ANIMATION_TIMEOUT_PADDING
+            );
+
+
+            return {
+                promise,
+                cancel
+            };
+
+        }
+
+
+        // ================================================
+        // TRANSITION MANAGEMENT
+        // ================================================
+
+        function cancelCurrentTransition() {
+
+            const transition = STATE.transition;
+
+            if (!transition) return;
+
+            transition.animations.forEach(animation => {
+                animation.cancel();
+            });
+
+            // The incoming layer becomes the current layer.
+            const incoming = ELEMENTS.layers[
+                transition.incomingIndex
+            ];
+
+            const outgoing = ELEMENTS.layers[
+                transition.outgoingIndex
+            ];
+
+            if (incoming) {
+
+                clearAnimationClasses(incoming);
+
+                incoming.classList.add('visible');
+
+                incoming.style.zIndex = '1';
+
+            }
+
+            if (outgoing) {
+
+                clearAnimationClasses(outgoing);
+
+                outgoing.classList.remove('visible');
+
+                outgoing.style.zIndex = '';
+
+            }
+
+            STATE.currentIndex = transition.incomingIndex;
+
+            STATE.transition = null;
+
+        }
+
+
+        // ================================================
+        // DISPLAY IMAGE
+        // ================================================
+
+        async function transitionToImage(url) {
+
+            // Complete any previous transition safely.
+            cancelCurrentTransition();
+
+
+            const transitionVersion = ++STATE.transitionVersion;
+
+            const outgoingIndex = STATE.currentIndex;
+
+            const incomingIndex = outgoingIndex === 0
+                ? 1
+                : 0;
+
+
+            const incoming = ELEMENTS.layers[incomingIndex];
+
+            const outgoing = outgoingIndex >= 0
+                ? ELEMENTS.layers[outgoingIndex]
+                : null;
+
+
+            // Prepare the incoming layer.
+            clearAnimationClasses(incoming);
+
+            incoming.classList.remove('visible');
+
+            incoming.style.zIndex = '2';
+
+            incoming.src = url;
+
+            incoming.classList.add('visible');
+
+
+            // No previous image: initial load.
+            if (!outgoing) {
+
+                STATE.currentIndex = incomingIndex;
+                STATE.currentArtUrl = url;
+
+                const animation = runAnimation(
+                    incoming,
+                    CONFIG.animationIn
+                );
+
+                STATE.transition = {
+                    version: transitionVersion,
+                    incomingIndex,
+                    outgoingIndex: -1,
+                    animations: [animation]
+                };
+
+                await animation.promise;
+
+                if (
+                    STATE.transition?.version === transitionVersion
+                ) {
+
+                    clearAnimationClasses(incoming);
+
+                    incoming.classList.add('visible');
+
+                    incoming.style.zIndex = '';
+
+                    STATE.transition = null;
+
+                }
+
+                return;
+
+            }
+
+
+            // Keep the outgoing layer underneath.
+            outgoing.style.zIndex = '1';
+
+
+            // Start both animations together.
+            const outgoingAnimation = runAnimation(
+                outgoing,
+                CONFIG.animationOut
+            );
+
+            const incomingAnimation = runAnimation(
+                incoming,
+                CONFIG.animationIn
+            );
+
+
+            STATE.currentIndex = incomingIndex;
+            STATE.currentArtUrl = url;
+
+
+            STATE.transition = {
+
+                version: transitionVersion,
+
+                outgoingIndex,
+                incomingIndex,
+
+                animations: [
+                    outgoingAnimation,
+                    incomingAnimation
+                ]
+
+            };
+
+
+            await Promise.all([
+                outgoingAnimation.promise,
+                incomingAnimation.promise
+            ]);
+
+
+            // Ignore obsolete transitions.
+            if (
+                STATE.transition?.version !== transitionVersion
+            ) {
+                return;
+            }
+
+
+            // Finalize the transition.
+            clearAnimationClasses(outgoing);
+
+            clearAnimationClasses(incoming);
+
+            outgoing.classList.remove('visible');
+
+            incoming.classList.add('visible');
+
+            outgoing.style.zIndex = '';
+            incoming.style.zIndex = '';
+
+            STATE.transition = null;
+
+
+            log('Transição concluída.', url);
+
         }
 
 
@@ -407,75 +1123,86 @@
         // IMAGE MANAGEMENT
         // ================================================
 
-        function applyImage(url, isFallback = false) {
-            if (!url) return;
+        async function applyImage(url, isFallback = false) {
 
-            if (
-                url === STATE.currentArtUrl ||
-                url === STATE.pendingArtUrl
-            ) {
-                return;
+            if (!url) return false;
+
+
+            if (url === STATE.currentArtUrl) {
+
+                log('Imagem já está em exibição.');
+
+                return true;
+
             }
+
+
+            if (url === STATE.pendingArtUrl) {
+
+                log('Imagem já está sendo carregada.');
+
+                return false;
+
+            }
+
 
             const version = ++STATE.imageVersion;
 
             STATE.pendingArtUrl = url;
 
-            const preloader = new Image();
 
-            preloader.onload = () => {
-                if (version !== STATE.imageVersion) return;
+            log(
+                isFallback
+                    ? 'Carregando imagem de fallback.'
+                    : 'Carregando nova BoxArt.',
+                url
+            );
 
-                if (STATE.imageTimer) {
-                    clearTimeout(STATE.imageTimer);
-                    STATE.imageTimer = null;
-                }
 
-                const replaceImage = () => {
-                    if (version !== STATE.imageVersion) return;
+            const loaded = await preloadImage(url);
 
-                    ELEMENTS.boxart.src = url;
-                    ELEMENTS.boxart.classList.add('loaded');
 
-                    STATE.currentArtUrl = url;
-                    STATE.pendingArtUrl = '';
+            // Ignore obsolete image requests.
+            if (version !== STATE.imageVersion) {
+                return false;
+            }
 
-                    STATE.isFirstLoad = false;
 
-                    log(
-                        isFallback
-                            ? 'Fallback aplicado.'
-                            : 'BoxArt atualizada.',
-                        url
-                    );
-                };
+            STATE.pendingArtUrl = '';
 
-                if (STATE.isFirstLoad) {
-                    replaceImage();
-                    return;
-                }
 
-                ELEMENTS.boxart.classList.remove('loaded');
-
-                STATE.imageTimer = setTimeout(
-                    replaceImage,
-                    CONSTANTS.TRANSITION_DURATION
-                );
-            };
-
-            preloader.onerror = () => {
-                if (version !== STATE.imageVersion) return;
-
-                STATE.pendingArtUrl = '';
+            if (!loaded) {
 
                 logError('Falha ao carregar imagem.', url);
 
-                if (!isFallback && CONFIG.fallback) {
-                    applyImage(getFallbackUrl(), true);
-                }
-            };
 
-            preloader.src = url;
+                if (!isFallback && CONFIG.fallback) {
+
+                    return applyImage(
+                        getFallbackUrl(),
+                        true
+                    );
+
+                }
+
+                return false;
+
+            }
+
+
+            await transitionToImage(url);
+
+
+            log(
+                isFallback
+                    ? 'Fallback aplicado.'
+                    : 'BoxArt atualizada.',
+                url
+            );
+
+
+            return true;
+
         }
 
 
@@ -484,37 +1211,65 @@
         // ================================================
 
         async function resolveCategory(categoryName) {
+
             const index = await loadCategoryIndex();
 
+
             if (!index) {
-                logError('Índice de categorias indisponível.');
+
+                logError(
+                    'Índice de categorias indisponível.'
+                );
 
                 if (CONFIG.fallback) {
-                    applyImage(getFallbackUrl(), true);
+
+                    return applyImage(
+                        getFallbackUrl(),
+                        true
+                    );
+
                 }
 
-                return;
+                return false;
+
             }
 
-            const normalizedName = normalizeCategory(categoryName);
+
+            const normalizedName = normalizeCategory(
+                categoryName
+            );
 
             const categoryUrl = index.get(normalizedName);
 
+
             if (!categoryUrl) {
-                logError('Categoria não encontrada no índice.', categoryName);
+
+                logError(
+                    'Categoria não encontrada no índice.',
+                    categoryName
+                );
 
                 if (CONFIG.fallback) {
-                    applyImage(getFallbackUrl(), true);
+
+                    return applyImage(
+                        getFallbackUrl(),
+                        true
+                    );
+
                 }
 
-                return;
+                return false;
+
             }
+
 
             const imageUrl = getCategoryImage(categoryUrl);
 
-            if (!imageUrl) return;
+            if (!imageUrl) return false;
 
-            applyImage(imageUrl);
+
+            return applyImage(imageUrl);
+
         }
 
 
@@ -523,73 +1278,147 @@
         // ================================================
 
         async function checkBoxArt() {
+
+            // Cancel the previous request if necessary.
             if (STATE.requestController) {
+
                 STATE.requestController.abort();
+
             }
+
 
             const controller = new AbortController();
 
             STATE.requestController = controller;
 
+
             try {
+
                 const apiUrl =
                     CONSTANTS.API_URL +
                     encodeURIComponent(CONFIG.channel);
 
-                log('Consultando categoria.', CONFIG.channel);
 
-                const response = await fetch(apiUrl, {
-                    method: 'GET',
-                    cache: 'no-store',
-                    signal: controller.signal
-                });
+                log(
+                    'Consultando categoria.',
+                    CONFIG.channel
+                );
+
+
+                const response = await fetch(
+                    apiUrl,
+                    {
+                        method: 'GET',
+                        cache: 'no-store',
+                        signal: controller.signal
+                    }
+                );
+
 
                 if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
+
+                    throw new Error(
+                        `HTTP ${response.status}`
+                    );
+
                 }
 
-                const categoryName = (await response.text()).trim();
+
+                const categoryName = (
+                    await response.text()
+                ).trim();
+
 
                 if (controller.signal.aborted) return;
 
+
+                // Channel without a category.
                 if (!categoryName) {
+
                     log('Canal sem categoria definida.');
 
                     STATE.currentCategory = '';
 
                     if (CONFIG.fallback) {
-                        applyImage(getFallbackUrl(), true);
+
+                        await applyImage(
+                            getFallbackUrl(),
+                            true
+                        );
+
                     }
 
                     return;
+
                 }
 
-                if (categoryName === STATE.currentCategory) {
+
+                // No category change.
+                if (
+                    categoryName === STATE.currentCategory
+                ) {
+
                     log('Categoria sem alterações.');
+
                     return;
+
                 }
 
-                log('Nova categoria detectada.', categoryName);
 
-                STATE.currentCategory = categoryName;
+                log(
+                    'Nova categoria detectada.',
+                    categoryName
+                );
 
-                await resolveCategory(categoryName);
+
+                const resolved = await resolveCategory(
+                    categoryName
+                );
+
+
+                if (resolved) {
+
+                    STATE.currentCategory = categoryName;
+
+                }
+
 
             } catch (error) {
+
                 if (error.name === 'AbortError') return;
 
-                logError('Erro ao consultar categoria.', error);
 
-                // Do not remove the last valid image on temporary errors.
-                if (STATE.isFirstLoad && CONFIG.fallback) {
-                    applyImage(getFallbackUrl(), true);
+                logError(
+                    'Erro ao consultar categoria.',
+                    error
+                );
+
+
+                // Preserve the last valid image.
+                if (
+                    !STATE.currentArtUrl &&
+                    CONFIG.fallback
+                ) {
+
+                    await applyImage(
+                        getFallbackUrl(),
+                        true
+                    );
+
                 }
 
             } finally {
-                if (STATE.requestController === controller) {
+
+                if (
+                    STATE.requestController === controller
+                ) {
+
                     STATE.requestController = null;
+
                 }
+
             }
+
         }
 
 
@@ -598,14 +1427,130 @@
         // ================================================
 
         function scheduleNextCheck() {
+
             if (STATE.requestTimer) {
+
                 clearTimeout(STATE.requestTimer);
+
             }
 
-            STATE.requestTimer = setTimeout(async () => {
-                await checkBoxArt();
-                scheduleNextCheck();
-            }, CONFIG.interval);
+
+            STATE.requestTimer = setTimeout(
+                async () => {
+
+                    await checkBoxArt();
+
+                    scheduleNextCheck();
+
+                },
+                CONFIG.interval
+            );
+
+        }
+
+
+        // ================================================
+        // OVERLAY VISIBILITY
+        // ================================================
+
+        async function hideOverlay() {
+
+            if (STATE.currentIndex < 0) return;
+
+
+            // Finish any ongoing category transition.
+            cancelCurrentTransition();
+
+
+            const current = ELEMENTS.layers[
+                STATE.currentIndex
+            ];
+
+
+            if (!current || !current.classList.contains('visible')) {
+                return;
+            }
+
+
+            log('Ocultando overlay.');
+
+
+            const animation = runAnimation(
+                current,
+                CONFIG.animationOut
+            );
+
+
+            await animation.promise;
+
+
+            if (STATE.isDocumentHidden) {
+
+                clearAnimationClasses(current);
+
+                current.classList.remove('visible');
+
+                current.style.zIndex = '';
+
+            }
+
+        }
+
+
+        async function showOverlay() {
+
+            if (STATE.currentIndex < 0) return;
+
+
+            const current = ELEMENTS.layers[
+                STATE.currentIndex
+            ];
+
+
+            if (!current) return;
+
+
+            log('Exibindo overlay.');
+
+
+            clearAnimationClasses(current);
+
+            current.classList.add('visible');
+
+
+            const animation = runAnimation(
+                current,
+                CONFIG.animationIn
+            );
+
+
+            await animation.promise;
+
+
+            clearAnimationClasses(current);
+
+            current.classList.add('visible');
+
+            current.style.zIndex = '';
+
+        }
+
+
+        function handleVisibilityChange() {
+
+            STATE.isDocumentHidden = document.hidden;
+
+
+            if (document.hidden) {
+
+                hideOverlay();
+
+            } else {
+
+                showOverlay();
+
+            }
+
         }
 
 
@@ -614,23 +1559,55 @@
         // ================================================
 
         async function initialize() {
+
             if (!validateConfiguration()) return;
 
+
             log('Overlay inicializado.', {
+
                 channel: CONFIG.channel,
+
                 size: CONFIG.size,
+
                 interval: CONFIG.interval / 1000,
+
                 fallback: CONFIG.fallback,
-                fit: CONFIG.fit
+
+                fit: CONFIG.fit,
+
+                animationIn: CONFIG.animationIn || 'disabled',
+
+                animationOut: CONFIG.animationOut || 'disabled',
+
+                animationSpeed:
+                    CONFIG.animationSpeed || 'normal'
+
             });
+
+
+            document.addEventListener(
+                'visibilitychange',
+                handleVisibilityChange
+            );
+
 
             await checkBoxArt();
 
-            scheduleNextCheck()
+
+            scheduleNextCheck();
+
         }
 
-        initialize()
-    })()
+
+        // ================================================
+        // START
+        // ================================================
+
+        initialize();
+
+
+    })();
     </script>
+
 </body>
 </html>
