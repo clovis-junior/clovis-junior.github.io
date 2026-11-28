@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Socials Overlay - Social Stream Ninja</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,100..900;1,100..900&display=swap"
+        type="text/css">
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"
+        type="text/css">
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+    <style type="text/css">
+        @charset 'UTF-8';
+
+        *,
+        *:after,
+        *:before {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        * {
+            outline: 0;
+            border: none;
+            font-family: inherit;
+            font-size: 100%;
+            background: transparent;
+            vertical-align: baseline;
+        }
+
+        :root {
+            --base-width: 48rem;
+            --brand-size: 5rem;
+
+            --social-letter-spacing: 4px;
+            --social-font-family: 'Noto Sans';
+            --social-font-weight: 700;
+            --social-font-size: 4rem;
+            --social-text-color: #cbd5e1;
+
+            --brand-discord: #5865f2;
+            --brand-facebook: #005fed;
+            --brand-kick: #00e701;
+            --brand-tiktok: #2af0ea;
+            --brand-x: #000000;
+            --brand-twitch: #6441a5;
+            --brand-youtube: #f80231;
+            --brand-youtubeshorts: #f80231;
+            --brand-instagram: #e4405f;
+        }
+
+        body {
+            overflow: hidden;
+            text-rendering: optimizeLegibility;
+        }
+
+        #social-container {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-wrap: nowrap;
+            flex-direction: row;
+            justify-content: center;
+            align-items: center;
+            gap: 2rem;
+        }
+
+        .social-list {
+            width: var(--base-width);
+            flex: 0 0 var(--base-width);
+            display: flex;
+            flex-wrap: nowrap;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 1rem 2rem;
+            overflow: hidden;
+        }
+
+        .social {
+            display: flex;
+            flex-wrap: nowrap;
+            flex-direction: row;
+            align-items: center;
+            gap: 2rem;
+        }
+
+        .social>.social-icon {
+            width: var(--brand-size);
+            height: var(--brand-size);
+            display: block;
+            color: var(--social-text-color);
+        }
+
+        .social.social-discord>.social-icon {
+            color: var(--brand-discord);
+        }
+
+        .social.social-facebook>.social-icon {
+            color: var(--brand-facebook);
+        }
+
+        .social.social-kick>.social-icon {
+            color: var(--brand-kick);
+        }
+
+        .social.social-tiktok>.social-icon {
+            color: var(--brand-tiktok);
+        }
+
+        .social.social-x>.social-icon {
+            color: var(--brand-x);
+        }
+
+        .social.social-twitch>.social-icon {
+            color: var(--brand-twitch);
+        }
+
+        .social.social-youtube>.social-icon {
+            color: var(--brand-youtube);
+        }
+
+        .social.social-youtubeshorts>.social-icon {
+            color: var(--brand-youtubeshorts);
+        }
+
+        .social.social-instagram>.social-icon {
+            color: var(--brand-instagram);
+        }
+
+        .social>.social-handle {
+            letter-spacing: var(--social-letter-spacing);
+            font-family: var(--social-font-family);
+            font-weight: var(--social-font-weight);
+            font-size: var(--social-font-size);
+            color: var(--social-text-color);
+        }
+
+        .social > .social-handle .at {
+            margin-right: 4px;
+            font-weight: 300;
+            font-size: 80%;
+            opacity: 0.4;
+        }
+    </style>
+</head>
+
+<body>
+    <svg xmlns="http://www.w3.org/2000/svg" style="display: none;" aria-hidden="true">
+        <symbol id="icon-discord" viewBox="0 0 24 24" fill="currentColor">
+            <path
+                d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z" />
+        </symbol>
+        <symbol id="icon-facebook" viewBox="0 0 24 24" fill="currentColor">
+            <path
+                d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z" />
+        </symbol>
+        <symbol id="icon-kick" viewBox="0 0 24 24" fill="currentColor">
+            <path
+                d="M4 3h5.333v5.333h2.667V5.667h2.667V3H20v5.333h-2.667V11h-2.666v2h2.666v2.667H20V21h-5.333v-2.667H12v-2.666H9.333V21H4V3z" />
+        </symbol>
+        <symbol id="icon-tiktok" viewBox="0 0 24 24" fill="currentColor">
+            <path
+                d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
+        </symbol>
+        <symbol id="icon-x" viewBox="0 0 24 24" fill="currentColor">
+            <path
+                d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+        </symbol>
+        <symbol id="icon-twitch" viewBox="0 0 24 24" fill="currentColor">
+            <path
+                d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z" />
+        </symbol>
+        <symbol id="icon-youtube" viewBox="0 0 24 24" fill="currentColor">
+            <path
+                d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+        </symbol>
+        <symbol id="icon-youtubeshorts" viewBox="0 0 24 24" fill="currentColor">
+            <path
+                d="M17.77 10.32c-.77-.32-1.2-.5-1.2-.5L18 9.06c1.84-.96 2.53-3.23 1.56-5.06s-3.24-2.53-5.07-1.56L6 6.94c-1.29.68-2.07 2.04-2 3.49.07 1.42.93 2.67 2.22 3.25.03.01 1.2.5 1.2.5L6 14.93c-1.83.97-2.53 3.24-1.56 5.07.97 1.83 3.24 2.53 5.07 1.56l8.5-4.5c1.29-.68 2.06-2.04 1.99-3.49-.07-1.42-.94-2.68-2.23-3.25zM10 14.65v-5.3L15 12l-5 2.65z" />
+        </symbol>
+        <symbol id="icon-instagram" viewBox="0 0 24 24" fill="currentColor">
+            <path
+                d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
+        </symbol>
+    </svg>
+    <main id="social-container"></main>
+    <template id="social-template">
+        <div class="social">
+            <span></span>
+        </div>
+    </template>
+    <template id="base-template">
+        <div class="social-base">
+            <div class="social-list"></div>
+        </div>
+    </template>
+    <script type="text/javascript" defer>
+        (() => {
+            "use strict";
+
+            // =========================================================
+            // CONFIGURAÇÕES PADRÃO
+            // =========================================================
+
+            const DEFAULTS = {
+                socials: "kick:@oclovao",
+                duration: 5000,
+                animationIn: "fadeInUp",
+                animationOut: "fadeOutDown",
+                animationSpeed: ""
+            };
+
+            const NETWORK_ALIASES = {
+                twitter: "x",
+                youtube_shorts: "youtubeshorts",
+                "youtube-shorts": "youtubeshorts",
+                shorts: "youtubeshorts"
+            };
+
+            const ANIMATION_PREFIX = "animate__";
+
+            // =========================================================
+            // PARÂMETROS DA URL
+            // =========================================================
+
+            const params = new URLSearchParams(window.location.search);
+
+            function getParam(name, fallback = "") {
+                return params.get(name) ?? fallback;
+            }
+
+            function getNumber(name, fallback, min, max) {
+                const value = Number(getParam(name, fallback));
+
+                if (!Number.isFinite(value)) {
+                    return fallback;
+                }
+
+                return Math.min(max, Math.max(min, value))
+            }
+
+            // =========================================================
+            // ANIMATE.CSS
+            // =========================================================
+
+            function normalizeAnimation(name) {
+                name = String(name || "").trim();
+
+                if (!name || name.toLowerCase() === "none") {
+                    return "";
+                }
+
+                // Permite informar somente o nome da animação.
+                name = name.replace(/^animate__/i, "");
+
+                if (!/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(name)) {
+                    return "";
+                }
+
+                // Não limita a biblioteca a uma lista de animações.
+                return ANIMATION_PREFIX + name;
+            }
+
+            function normalizeSpeed(speed) {
+                const speeds = {
+                    slow: "animate__slow",
+                    slower: "animate__slower",
+                    fast: "animate__fast",
+                    faster: "animate__faster"
+                };
+
+                return speeds[String(speed).toLowerCase()] || "";
+            }
+
+            const config = {
+                duration: getNumber(
+                    "duration",
+                    DEFAULTS.duration,
+                    500,
+                    120000
+                ),
+
+                animationIn: normalizeAnimation(
+                    getParam("animationIn", DEFAULTS.animationIn)
+                ),
+
+                animationOut: normalizeAnimation(
+                    getParam("animationOut", DEFAULTS.animationOut)
+                ),
+
+                animationSpeed: normalizeSpeed(
+                    getParam("animationSpeed", DEFAULTS.animationSpeed)
+                )
+            };
+
+            // =========================================================
+            // REDES SOCIAIS
+            // =========================================================
+
+            function normalizeNetwork(network) {
+                network = String(network || "").trim().toLowerCase();
+
+                return NETWORK_ALIASES[network] || network;
+            }
+
+            function parseSocials(value) {
+                if (!value)
+                    return [];
+
+                return value
+                    .split(",")
+                    .map(item => {
+                        const separator = item.indexOf(":");
+
+                        if (separator === -1)
+                            return null;
+
+                        const network = normalizeNetwork(
+                            item.slice(0, separator)
+                        );
+
+                        const handle = item.slice(separator + 1).trim();
+
+                        if (!network || !handle)
+                            return null;
+
+                        // Confere se o ícone SVG está disponível no HTML.
+                        if (!document.getElementById(`icon-${network}`)) {
+                            console.warn(
+                                `[Social Overlay] Rede não encontrada: ${network}`
+                            );
+
+                            return null
+                        }
+
+                        return {
+                            network,
+                            handle
+                        }
+                    })
+                    .filter(Boolean)
+            }
+
+            // =========================================================
+            // TEMPO INDIVIDUAL POR REDE
+            // =========================================================
+
+            function parseDurations(value) {
+                const durations = {};
+
+                if (!value) {
+                    return durations;
+                }
+
+                value.split(",").forEach(item => {
+                    const separator = item.indexOf(":");
+
+                    if (separator === -1)
+                        return;
+
+                    const network = normalizeNetwork(
+                        item.slice(0, separator)
+                    );
+
+                    const duration = Number(
+                        item.slice(separator + 1)
+                    );
+
+                    if (
+                        network &&
+                        Number.isFinite(duration) &&
+                        duration >= 500
+                    ) {
+                        durations[network] = Math.min(duration, 120000);
+                    }
+                });
+
+                return durations
+            }
+
+            const individualDurations = parseDurations(
+                getParam("durations")
+            );
+
+            function getSocialDuration(social) {
+                return individualDurations[social.network] ??
+                    config.duration;
+            }
+
+            // =========================================================
+            // ELEMENTOS HTML
+            // =========================================================
+
+            const container = document.getElementById("social-container");
+            const baseTemplate = document.getElementById("base-template");
+            const socialTemplate = document.getElementById("social-template");
+
+            if (!container) {
+                console.error(
+                    "[Social Overlay] #social-container não encontrado."
+                );
+
+                return
+            }
+
+            if (!baseTemplate || !socialTemplate) {
+                console.error(
+                    "[Social Overlay] Templates HTML não encontrados."
+                );
+
+                return
+            }
+
+            // =========================================================
+            // ESTRUTURA PRINCIPAL
+            // =========================================================
+
+            const base = baseTemplate.content.cloneNode(true);
+
+            container.replaceChildren(base);
+
+            const socialList = container.querySelector(".social-list");
+
+            if (!socialList) {
+                console.error(
+                    "[Social Overlay] .social-list não encontrado no template."
+                );
+
+                return
+            }
+
+            // Clona o template uma única vez.
+            const socialElement = socialTemplate.content
+                .firstElementChild
+                ?.cloneNode(true);
+
+            if (!socialElement) {
+                console.error(
+                    "[Social Overlay] Template de rede social inválido."
+                );
+
+                return
+            }
+
+            socialElement.classList.add("social");
+
+            socialList.appendChild(socialElement);
+
+            // =========================================================
+            // CONFIGURAÇÃO DAS REDES
+            // =========================================================
+
+            const socials = parseSocials(
+                getParam("socials", DEFAULTS.socials)
+            );
+
+            if (!socials.length) {
+                console.warn(
+                    "[Social Overlay] Nenhuma rede social válida configurada."
+                );
+
+                return
+            }
+
+            // =========================================================
+            // RENDERIZAÇÃO
+            // =========================================================
+
+            let previousNetworkClass = "";
+
+            function renderSocial(social) {
+                const icon = document.createElementNS(
+                    "http://www.w3.org/2000/svg",
+                    "svg"
+                );
+
+                const use = document.createElementNS(
+                    "http://www.w3.org/2000/svg",
+                    "use"
+                );
+
+                icon.classList.add("social-icon");
+
+                icon.setAttribute("aria-hidden", "true");
+                icon.setAttribute("focusable", "false");
+
+                use.setAttribute("href", `#icon-${social.network}`);
+
+                icon.appendChild(use);
+
+                // Cria o identificador sem interpretar HTML fornecido pela URL.
+                const handle = document.createElement("span");
+
+                handle.classList.add("social-handle");
+                
+                if (social.handle.startsWith("@")) {
+                    const at = document.createElement("i");
+
+                    at.classList.add("at");
+                    at.textContent = "@";
+
+                    handle.append(at, document.createTextNode(social.handle.slice(1)))
+                } else
+                    handle.textContent = social.handle;
+
+                // Mantém as classes personalizadas do template.
+                if (previousNetworkClass) {
+                    socialElement.classList.remove(previousNetworkClass);
+                }
+
+                previousNetworkClass = `social-${social.network}`;
+
+                socialElement.classList.add(previousNetworkClass);
+
+                socialElement.replaceChildren(icon, handle);
+
+                // Nenhum estilo inline é aplicado.
+                // Toda a aparência fica sob controle do CSS.
+            }
+
+            // =========================================================
+            // CONTROLE DAS ANIMAÇÕES
+            // =========================================================
+
+            function getAnimationDuration(element) {
+                const style = getComputedStyle(element);
+
+                if (style.animationName === "none")
+                    return 0;
+
+                function parseTimes(value) {
+                    return value.split(",").map(item => {
+                        item = item.trim();
+
+                        if (item.endsWith("ms")) {
+                            return parseFloat(item);
+                        }
+
+                        return parseFloat(item) * 1000;
+                    })
+                }
+
+                const durations = parseTimes(style.animationDuration);
+                const delays = parseTimes(style.animationDelay);
+
+                return Math.max(
+                    0,
+                    ...durations.map((duration, index) => {
+                        const delay = delays[index % delays.length] || 0;
+
+                        return duration + delay;
+                    })
+                )
+            }
+
+            function playAnimation(element, animation) {
+                return new Promise(resolve => {
+                    if (!animation) {
+                        resolve();
+                        return
+                    }
+
+                    const classes = [
+                        "animate__animated",
+                        animation
+                    ];
+
+                    if (config.animationSpeed) {
+                        classes.push(config.animationSpeed);
+                    }
+
+                    element.classList.remove(...classes);
+
+                    // Reinicia a animação sem alterar o CSS.
+                    void element.offsetWidth;
+
+                    element.classList.add(...classes);
+
+                    const duration = getAnimationDuration(element);
+
+                    if (duration <= 0) {
+                        element.classList.remove(...classes);
+                        resolve();
+                        return
+                    }
+
+                    setTimeout(() => {
+                        element.classList.remove(...classes);
+                        resolve();
+                    }, duration + 50)
+                })
+            }
+
+            // =========================================================
+            // ALTERNÂNCIA AUTOMÁTICA
+            // =========================================================
+
+            let currentIndex = 0;
+            let cycleTimer = null;
+            let isTransitioning = false;
+
+            function scheduleNext() {
+                clearTimeout(cycleTimer);
+
+                if (socials.length < 2)
+                    return;
+
+                const currentSocial = socials[currentIndex];
+
+                cycleTimer = setTimeout(() => {
+                    const nextIndex = (
+                        currentIndex + 1
+                    ) % socials.length;
+
+                    showSocial(nextIndex);
+                }, getSocialDuration(currentSocial));
+            }
+
+            async function showSocial(index) {
+                if (isTransitioning)
+                    return;
+
+                isTransitioning = true;
+
+                clearTimeout(cycleTimer);
+
+                // Saída da rede atual.
+                if (socialElement.dataset.network) {
+                    await playAnimation(
+                        socialElement,
+                        config.animationOut
+                    );
+                }
+
+                currentIndex = index;
+
+                const social = socials[currentIndex];
+
+                renderSocial(social);
+
+                socialElement.dataset.network = social.network;
+
+                // Entrada da próxima rede.
+                await playAnimation(
+                    socialElement,
+                    config.animationIn
+                );
+
+                isTransitioning = false;
+
+                scheduleNext()
+            }
+
+            // =========================================================
+            // INICIALIZAÇÃO
+            // =========================================================
+
+            renderSocial(socials[0]);
+
+            socialElement.dataset.network = socials[0].network;
+
+            playAnimation(
+                socialElement,
+                config.animationIn
+            ).then(scheduleNext)
+
+        })()
+
+    </script>
+</body>
+
+</html>
